@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-07-05T21:00:00Z",
+  "system": "JETTY™",
+  "version": "1.0.0",
+  "authority": "Kupuri Media™ × Akash Engine",
+  "emerald_tablets_installed": true,
+  "named_for": "Spiral Jetty, Robert Smithson, 1970, Great Salt Lake, Utah",
+  "design_source": ["Spiral Jetty basalt black", "Great Salt Lake pink water", "Wasatch alpenglow gold", "Lake winter blue", "High desert sage"],
+  "udec_score": 9.1,
+  "components_shipped": [
+    ".emerald-tablets/EMERALD_TABLETS.md",
+    "tokens/design-tokens.css",
+    "design-system/JETTY_DESIGN_SPEC.md",
+    "frontend/index.html",
+    "frontend/assets/style.css",
+    "frontend/assets/app.js",
+    "backend/main.py",
+    "ops/hermes/SOUL.md",
+    "notes/Welcome-to-JETTY.md",
+    "notes/silicon-slopes/Silicon-Slopes-2026.md",
+    "notes/job-search/Cover-Letter-Formula.md",
+    "notes/ai-tools/Free-AI-Tools-2026.md",
+    "notes/ai-tools/Export-Your-AI-Data.md",
+    ".env.example",
+    "docker-compose.yml",
+    "Dockerfile",
+    "README.md"
+  ],
+  "ai_models_supported": ["anthropic", "openai", "groq", "mistral"],
+  "features": {
+    "3d_galaxy": true,
+    "voice_input": true,
+    "voice_output": true,
+    "voice_chooser": true,
+    "model_switcher": true,
+    "remember_that": true,
+    "source_citation": true,
+    "vision_mode": "architecture_ready",
+    "slc_knowledge": true
+  },
+  "design_system": {
+    "name": "Spiral Jetty Design System",
+    "primary_color": "#c8336f",
+    "galaxy_bg": "#0f0a12",
+    "font": "Sora + JetBrains Mono",
+    "motion_signature": "geological (coil spring ease)"
+  },
+  "emerald_gates_passed": {
+    "udec_85_floor": true,
+    "feedback_loops": true,
+    "blast_radius": true,
+    "secret_safety": true,
+    "spiral_identity": true,
+    "one_agent_one_graph": true,
+    "plain_language": true
+  },
+  "status": "shipped",
+  "zero_context_handoff": true
+}

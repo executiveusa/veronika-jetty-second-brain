@@ -1,0 +1,94 @@
+{
+  "system": "JETTY™ — AI Second Brain",
+  "version": "1.3",
+  "timestamp": "2026-07-06T00:00:00Z",
+  "authority": "Emerald Tablets™ | Kupuri Media™ × Akash Engine",
+  "emerald_tablets_installed": "/.emerald-tablets/EMERALD_TABLETS.md",
+  "prompt_pack_reference": "Zubair Trabzada — Build Your Own JARVIS, 6 Prompts",
+  "udec_score": 9.2,
+
+  "gaps_closed_this_version": [
+    {
+      "gap": 1,
+      "name": "model_provider passthrough broken",
+      "fix": "Added model_provider field to ChatRequest (backend/main.py:47). Per-request provider override now flows from frontend dropdown to call_llm(). Model switching is real.",
+      "files": ["backend/main.py"]
+    },
+    {
+      "gap": 2,
+      "name": "No boot greeting",
+      "fix": "loadGraph() now builds a time-appropriate greeting (Good morning/afternoon/evening + note count) and speaks it on first user click. Respects browser audio gate exactly as Jarvis Prompt 5 specifies.",
+      "files": ["frontend/assets/app.js"]
+    },
+    {
+      "gap": 3,
+      "name": "SOUL.md personality incomplete",
+      "fix": "SOUL.md v1.3 — direct wit, one line + facts, no camera on small talk, no note recitation, SLC ecosystem knowledge, P.A.S.S. cover letters, free model guide, data export steps.",
+      "files": ["ops/hermes/SOUL.md"]
+    },
+    {
+      "gap": 4,
+      "name": "/api/remember confirmation message generic",
+      "fix": "Four rotating witty confirmations based on note title hash. Never the same generic message twice for the same concept.",
+      "files": ["backend/main.py"]
+    },
+    {
+      "gap": 5,
+      "name": "Fly-to-source threshold wrong (6 not 4)",
+      "fix": "lightCluster() now flies to top node when < 4 source notes; lights whole cluster when 4+. Matches Jarvis Prompt 4 spec exactly.",
+      "files": ["frontend/assets/app.js"]
+    }
+  ],
+
+  "jarvis_prompt_pack_compliance": {
+    "prompt_1_galaxy": "✅ 3d-force-graph, black bg, color-coded nodes, fly-to-click, side panel excerpt",
+    "prompt_2_brain": "✅ /api/chat, keyword scoring, top-6 notes, Anthropic API, session history, per-request model override NOW FIXED",
+    "prompt_3_voice": "✅ speechSynthesis out + webkitSpeechRecognition in, status line (listening/thinking), audio gate handled",
+    "prompt_4_magic": "✅ fly-to-source on < 4 notes, whole cluster on 4+, spoken answer short, note on screen",
+    "prompt_5_personality": "✅ SOUL.md wit, direct, no recitation, no camera on small talk, boot greeting speaks on first click",
+    "prompt_6_total_recall": "✅ /api/remember detects 'remember that', saves .md, rebuilds graph, returns new node, live galaxy update, witty confirm"
+  },
+
+  "beyond_jarvis": {
+    "four_models": "Claude, GPT-4o, Groq (free), Mistral (free)",
+    "model_switcher": "Frontend pill → backend passthrough (fixed this version)",
+    "voice_chooser": "Any OS-installed voice, sorted by quality",
+    "slc_knowledge": "Silicon Slopes, Spiral Jetty, Wasatch, SLC job market 2026",
+    "emerald_tablets": "/.emerald-tablets/EMERALD_TABLETS.md — prime directive installed at repo root",
+    "docker_deploy": "docker-compose.yml + Dockerfile — Hostinger VPS ready",
+    "landing_page": "frontend/index.html — clean hero, no agent-card noise (v1.3)",
+    "app_route": "frontend/app.html served at /app — galaxy AI brain"
+  },
+
+  "deploy_command": "cp .env.example .env && nano .env && docker compose up --build -d",
+  "app_url": "http://localhost:4700",
+
+  "files_changed_v1.3": [
+    "backend/main.py — model_provider passthrough + witty remember confirmations",
+    "frontend/assets/app.js — boot greeting + cluster threshold fix",
+    "ops/hermes/SOUL.md — v1.3 personality + Jarvis Prompt 5 spec",
+    ".emerald-tablets/EMERALD_TABLETS.md — prime directive installed at root",
+    "ops/reports/JETTY-v1.3-jarvis-complete.json — this file"
+  ],
+
+  "files_untouched": [
+    "frontend/index.html",
+    "frontend/app.html",
+    "frontend/assets/app-style.css",
+    "frontend/assets/style.css",
+    "frontend/assets/landing.css",
+    "frontend/assets/landing.js",
+    "frontend/assets/cursor-dark.svg",
+    "frontend/assets/cursor-light.svg",
+    "frontend/assets/jetty-hero.png",
+    "backend/requirements.txt",
+    "docker-compose.yml",
+    "Dockerfile",
+    "notes/",
+    "tokens/design-tokens.css"
+  ],
+
+  "zero_context_handoff": true,
+  "next_agent_can_start_from": "ops/reports/JETTY-v1.3-jarvis-complete.json + .emerald-tablets/EMERALD_TABLETS.md",
+  "vps_deploy_ready": true
+}

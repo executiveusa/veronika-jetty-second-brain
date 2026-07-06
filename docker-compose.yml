@@ -1,0 +1,36 @@
+version: '3.9'
+
+services:
+  jetty:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jetty-tm
+    ports:
+      - "${PORT:-4700}:4700"
+    environment:
+      APP_NAME:           ${APP_NAME:-JETTY™}
+      APP_REGION:         ${APP_REGION:-Salt Lake City, Utah}
+      MODEL_PROVIDER:     ${MODEL_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY:  ${ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL:    ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      OPENAI_API_KEY:     ${OPENAI_API_KEY}
+      OPENAI_MODEL:       ${OPENAI_MODEL:-gpt-4o-mini}
+      GROQ_API_KEY:       ${GROQ_API_KEY}
+      GROQ_MODEL:         ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      MISTRAL_API_KEY:    ${MISTRAL_API_KEY}
+      MISTRAL_MODEL:      ${MISTRAL_MODEL:-mistral-small-latest}
+      GEMINI_API_KEY:     ${GEMINI_API_KEY}
+      COMPOSIO_API_KEY:   ${COMPOSIO_API_KEY}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-45}
+      MAX_HISTORY:        ${MAX_HISTORY:-10}
+      DAILY_COST_LIMIT_USD: ${DAILY_COST_LIMIT_USD:-25}
+    volumes:
+      - ./notes:/app/notes
+      - ./ops:/app/ops
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4700/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

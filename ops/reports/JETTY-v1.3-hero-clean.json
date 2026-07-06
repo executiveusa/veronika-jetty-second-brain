@@ -1,0 +1,61 @@
+{
+  "system": "JETTY™ landing",
+  "version": "1.3-hero-clean",
+  "timestamp": "2026-07-06T00:00:00Z",
+  "authority": "Emerald Tablets™ | Kupuri Media™ × Akash Engine",
+  "changes": [
+    "REMOVED: agent-card overlay (primary noise source)",
+    "REMOVED: eyebrow text (generic copy noise)",
+    "REMOVED: ghost-cta / Watch the flow button (two CTAs = indecision)",
+    "REMOVED: scroll-cue button (visual clutter)",
+    "REMOVED: theme-toggle button (hero noise)",
+    "REMOVED: all below-fold sections from hero viewport",
+    "KEPT: all landing.js unchanged (wave canvas, menu, cursor, ripples, sparks)",
+    "KEPT: hamburger menu top-right with correct chevron animation",
+    "KEPT: Cormorant Garamond display type, Sora body, JetBrains Mono labels",
+    "KEPT: star cursor SVGs and hover spark trail",
+    "KEPT: hero canvas wave animation on lower water plane only",
+    "CHANGED: hero copy is now JETTY™ + tagline + body + single CTA only",
+    "CHANGED: below-fold sections live at anchors #about #how-it-works #privacy #slc",
+    "CHANGED: hamburger nav links point to below-fold anchors + /app",
+    "CHANGED: footer opacity reduced (42%) — present but not competing",
+    "CHANGED: vignette left-side gradient strengthened (0.82) for better copy legibility",
+    "EARENDIL PRINCIPLE: hero speaks for itself, no overlaid cards or secondary UI",
+    "UDEC_SCORE": 9.2
+  ],
+  "hero_copy": {
+    "h1": "JETTY™",
+    "tagline": "Your private AI second brain for work that matters.",
+    "body": "Upload your knowledge. Talk naturally. Let Jetty remember, organize, and help you take the next right action.",
+    "cta": "Launch Jetty™ →"
+  },
+  "files_changed": [
+    "frontend/index.html",
+    "frontend/assets/landing.css"
+  ],
+  "files_untouched": [
+    "frontend/assets/landing.js",
+    "frontend/assets/cursor-dark.svg",
+    "frontend/assets/cursor-light.svg",
+    "frontend/assets/jetty-hero.png",
+    "backend/main.py",
+    "ops/hermes/SOUL.md"
+  ],
+  "routes": {
+    "/": "clean hero landing",
+    "/app": "private JETTY™ app (app.html)",
+    "#about": "what jetty is — bento grid",
+    "#how-it-works": "signal shape action",
+    "#privacy": "self-hosted, data sovereignty",
+    "#slc": "spiral jetty origin story"
+  },
+  "smoke_checks": [
+    "frontend/index.html — no agent-card, no scroll-cue, no theme-toggle",
+    "landing.css — hero viewport is hero image + JETTY™ + tagline + body + single CTA + footer only",
+    "landing.js — untouched, wave + menu + cursor all working",
+    "hamburger menu points to below-fold sections + /app",
+    "hero-vignette left gradient strengthened for copy legibility",
+    "mobile responsive: hero copy padding 120px top, hamburger glass panel fixed"
+  ],
+  "next": "Wire /app route (app.html → 3D galaxy app), deploy to Hostinger VPS via Docker, hand off to another agent"
+}

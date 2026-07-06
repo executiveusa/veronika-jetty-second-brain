@@ -1,0 +1,236 @@
+/**
+ * JETTY™ Design Token System
+ * Sourced from: Spiral Jetty, Great Salt Lake, Wasatch Front
+ * Authority: Emerald Tablets™ | Kupuri Media™ × Akash Engine
+ *
+ * DO NOT hardcode hex values anywhere outside this file.
+ * All components reference these tokens.
+ * Dark mode is automatic via @media prefers-color-scheme.
+ */
+
+:root {
+  /* ============================================================
+   * JETTY™ BRAND PALETTE — GEOLOGICAL SOURCE
+   * ============================================================ */
+
+  /* Primary — Jetty Pink (brine shrimp, hypersaline water)  */
+  --jetty-50:  #fef0f4;
+  --jetty-100: #fcd5e3;
+  --jetty-200: #f8a8c6;
+  --jetty-300: #f07aab;
+  --jetty-400: #e04d8e;   /* soft hover */
+  --jetty-500: #c8336f;   /* primary action */
+  --jetty-600: #a8225a;   /* active, pressed */
+  --jetty-700: #841445;   /* deep accent */
+  --jetty-800: #5e0c30;   /* text on light jetty fill */
+  --jetty-900: #3c061e;   /* darkest, headings on white */
+
+  /* Basalt — coiled rocks, night sky at the lake */
+  --basalt-50:  #f4f0f3;
+  --basalt-100: #e0d8de;
+  --basalt-200: #bfb4bc;
+  --basalt-300: #9d8f9a;
+  --basalt-400: #7a6c78;
+  --basalt-500: #584c57;
+  --basalt-600: #3e3440;  /* panel borders */
+  --basalt-700: #2a1f2c;  /* panel backgrounds */
+  --basalt-800: #1c1320;  /* deep panel */
+  --basalt-900: #0f0a12;  /* galaxy background */
+
+  /* Salt — mineral crust at lake's edge */
+  --salt-50:  #fefefe;
+  --salt-100: #f8f5f7;
+  --salt-200: #eee8ed;
+  --salt-300: #ddd4db;
+  --salt-400: #c4b8c2;
+  --salt-500: #a89ba6;
+  --salt-600: #887a86;
+  --salt-700: #655b63;
+  --salt-800: #423841;
+  --salt-900: #221820;
+
+  /* Alpenglow — Wasatch peaks at golden hour */
+  --glow-50:  #fef8ec;
+  --glow-100: #fbecc8;
+  --glow-200: #f6d98f;
+  --glow-300: #efbf50;
+  --glow-400: #d4a030;   /* warm accent */
+  --glow-500: #b07f18;
+  --glow-600: #8c600e;
+  --glow-700: #654309;
+  --glow-800: #422c05;
+  --glow-900: #221602;
+
+  /* Lake — the water when it isn't pink (winter blue-grey) */
+  --lake-50:  #edf6fb;
+  --lake-100: #c8e5f5;
+  --lake-200: #93ccec;
+  --lake-300: #5bb0e0;
+  --lake-400: #3092cc;   /* info, secondary links */
+  --lake-500: #1873ae;
+  --lake-600: #0e5a8a;
+  --lake-700: #083e65;
+  --lake-800: #042840;
+  --lake-900: #01131e;
+
+  /* Sage — high desert scrub, the road to Jetty */
+  --sage-50:  #eef4ee;
+  --sage-100: #cce3cc;
+  --sage-200: #9ecb9e;
+  --sage-300: #71b071;
+  --sage-400: #4d9050;   /* success */
+  --sage-500: #317033;
+  --sage-600: #1e5220;
+  --sage-700: #0f3611;
+  --sage-800: #061d07;
+  --sage-900: #020c03;
+
+  /* ============================================================
+   * SEMANTIC ROLES — what components consume
+   * ============================================================ */
+
+  /* Brand */
+  --brand:           var(--jetty-500);
+  --brand-hover:     var(--jetty-400);
+  --brand-tint:      var(--jetty-50);
+  --brand-soft:      var(--jetty-100);
+  --brand-border:    var(--jetty-200);
+  --brand-text:      var(--jetty-800);
+  --on-brand:        #ffffff;
+
+  /* Surfaces — light mode */
+  --surface-galaxy:  var(--basalt-900);   /* 3D galaxy bg */
+  --surface-0:       var(--salt-100);     /* page */
+  --surface-1:       var(--salt-50);      /* card */
+  --surface-2:       #ffffff;             /* elevated panel */
+  --surface-panel:   rgba(15,10,18,.88);  /* dark glass panel over galaxy */
+  --surface-panel-border: rgba(200,51,111,.22);
+
+  /* Text */
+  --text-primary:    var(--basalt-900);
+  --text-secondary:  var(--basalt-500);
+  --text-muted:      var(--basalt-400);
+  --text-inverse:    var(--salt-50);
+  --text-brand:      var(--jetty-700);
+
+  /* Borders */
+  --border:          var(--salt-300);
+  --border-strong:   var(--salt-400);
+  --border-brand:    var(--jetty-200);
+
+  /* Semantic */
+  --success:         var(--sage-400);
+  --success-tint:    var(--sage-50);
+  --warning:         var(--glow-400);
+  --warning-tint:    var(--glow-50);
+  --error:           #c82c2c;
+  --error-tint:      #fff0f0;
+  --info:            var(--lake-400);
+  --info-tint:       var(--lake-50);
+
+  /* ============================================================
+   * TYPOGRAPHY
+   * ============================================================ */
+
+  --font-display:   'Sora', ui-sans-serif, system-ui, sans-serif;
+  --font-body:      'Sora', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:      'JetBrains Mono', ui-monospace, monospace;
+
+  /* Scale */
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 14px;
+  --text-md:   16px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+  --text-2xl:  28px;
+  --text-3xl:  36px;
+  --text-4xl:  48px;
+
+  /* ============================================================
+   * SPACING
+   * ============================================================ */
+
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ============================================================
+   * RADII
+   * ============================================================ */
+
+  --radius-sm:   6px;
+  --radius:      10px;
+  --radius-md:   14px;
+  --radius-lg:   20px;
+  --radius-xl:   28px;
+  --radius-full: 9999px;
+
+  /* ============================================================
+   * MOTION
+   * ============================================================ */
+
+  --duration-fast:   120ms;
+  --duration-base:   200ms;
+  --duration-slow:   360ms;
+  --duration-galaxy: 1400ms;  /* camera flyto */
+  --ease-out:   cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ease-snap:  cubic-bezier(0.4, 0.0, 0.6, 1);
+  --ease-coil:  cubic-bezier(0.34, 1.56, 0.64, 1); /* spiral spring */
+
+  /* ============================================================
+   * SHADOWS
+   * ============================================================ */
+
+  --shadow-sm:  0 1px 3px rgba(15,10,18,.08), 0 1px 2px rgba(15,10,18,.06);
+  --shadow-md:  0 4px 16px rgba(15,10,18,.10), 0 2px 8px rgba(15,10,18,.08);
+  --shadow-lg:  0 12px 40px rgba(15,10,18,.14), 0 4px 16px rgba(15,10,18,.10);
+  --shadow-galaxy: 0 0 60px rgba(200,51,111,.20); /* jetty glow */
+
+  /* ============================================================
+   * GALAXY / JETTY 3D SCENE SPECIFIC
+   * ============================================================ */
+
+  --galaxy-bg:        #0f0a12;
+  --galaxy-fog:       rgba(15,10,18,.6);
+  --node-brand:       #c8336f;    /* user's own nodes */
+  --node-job:         #efbf50;    /* job search nodes */
+  --node-contact:     #5bb0e0;    /* contacts */
+  --node-idea:        #71b071;    /* captured ideas */
+  --node-capture:     #f07aab;    /* recent captures */
+  --link-color:       rgba(200,51,111,.18);
+  --link-hover:       rgba(200,51,111,.45);
+  --orbit-ring:       rgba(200,51,111,.12);
+}
+
+/* ============================================================
+ * DARK MODE — auto via prefers-color-scheme
+ * (Galaxy view always uses dark; app shell inherits OS pref)
+ * ============================================================ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-0:       var(--basalt-800);
+    --surface-1:       var(--basalt-700);
+    --surface-2:       var(--basalt-600);
+    --text-primary:    var(--salt-100);
+    --text-secondary:  var(--basalt-300);
+    --text-muted:      var(--basalt-400);
+    --border:          var(--basalt-600);
+    --border-strong:   var(--basalt-500);
+    --brand-tint:      rgba(200,51,111,.12);
+    --brand-soft:      rgba(200,51,111,.20);
+    --brand-border:    rgba(200,51,111,.35);
+    --brand-text:      var(--jetty-200);
+    --success-tint:    rgba(77,144,80,.12);
+    --warning-tint:    rgba(212,160,48,.12);
+    --error-tint:      rgba(200,44,44,.12);
+    --info-tint:       rgba(48,146,204,.12);
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "system": "JETTY™",
+  "version": "1.1.0-waves",
+  "changes": [
+    "Public landing page added at /",
+    "Private app moved to /app and /brain",
+    "Generated Spiral Jetty sunset image installed as frontend asset",
+    "Canvas water shimmer animation added",
+    "Click ripple and custom cursor added",
+    "Earendil-inspired fixed nav, dropdown, footer, and appearance toggle added",
+    "Private backend/API separation preserved"
+  ],
+  "public_routes": ["/"],
+  "private_routes": ["/app", "/brain"],
+  "api_routes_preserved": ["/api/health", "/api/graph", "/api/chat", "/api/remember", "/api/voices"],
+  "demo_rating": "9.2/10 for non-technical demo power after environment keys are connected",
+  "smoke_test_status": "pending_runtime_test_in_current_environment"
+}

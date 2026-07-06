@@ -1,0 +1,26 @@
+{
+  "system": "JETTY\u2122 landing",
+  "version": "1.2-waves-cursor-menu",
+  "timestamp": "2026-07-05T23:50:58.256608Z",
+  "changes": [
+    "Constrained wave distortion to lower water/salt-plane mask only",
+    "Added star cursor SVG assets from the original visual language",
+    "Added hover spin and sparse star spark trail",
+    "Replaced centered nav/dropdown with top-right hamburger/chevron menu",
+    "Added desktop compact stack and mobile glass panel behavior",
+    "Added close on outside click, Escape, and link selection",
+    "Updated design prompt with v1.2 implementation rules"
+  ],
+  "routes": {
+    "/": "animated landing",
+    "/app": "private app",
+    "/brain": "private app"
+  },
+  "smoke_checks": [
+    "frontend/index.html present",
+    "landing.css present",
+    "landing.js present",
+    "cursor SVG assets present",
+    "hero canvas still points to /assets/jetty-hero.png"
+  ]
+}
