@@ -11,6 +11,13 @@
     pointer: { x: -9999, y: -9999 }, ripples: []
   };
 
+  function syncViewportMode() {
+    const w = window.innerWidth || document.documentElement.clientWidth || 0;
+    const isTouch = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+    document.documentElement.dataset.viewport = w < 700 ? 'compact' : w < 1100 ? 'tablet' : 'desktop';
+    document.documentElement.dataset.pointer = isTouch ? 'touch' : 'fine';
+  }
+
   function coverRect(iw, ih, w, h) {
     const s = Math.max(w / iw, h / ih);
     const sw = w / s, sh = h / s;
@@ -23,6 +30,7 @@
     canvas.height = Math.floor(state.h * state.dpr);
     canvas.style.width = state.w + 'px'; canvas.style.height = state.h + 'px';
     ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+    syncViewportMode();
   }
   addEventListener('resize', resize, { passive: true });
 

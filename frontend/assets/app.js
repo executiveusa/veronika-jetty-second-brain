@@ -40,6 +40,16 @@ function apiUrl(path) {
   return `${base}${cleanPath}`;
 }
 
+function syncViewportMode() {
+  const w = window.innerWidth || document.documentElement.clientWidth || 0;
+  const isCoarse = window.matchMedia('(pointer: coarse)').matches;
+  const isTouch = navigator.maxTouchPoints > 0 || isCoarse;
+  const mode = w < 720 ? 'compact' : w < 1100 ? 'tablet' : 'desktop';
+  const root = document.documentElement;
+  root.dataset.viewport = mode;
+  root.dataset.pointer = isTouch ? 'touch' : 'fine';
+}
+
 async function syncPreferredModel() {
   try {
     const r = await fetch(apiUrl('/api/health'));
@@ -474,7 +484,11 @@ $('query-input').addEventListener('keydown', e => {
 });
 document.body.addEventListener('click', () => { STATE.unlocked = true; }, { once: true });
 
+window.addEventListener('resize', syncViewportMode, { passive: true });
+window.addEventListener('orientationchange', syncViewportMode, { passive: true });
+
 async function boot() {
+  syncViewportMode();
   await syncPreferredModel();
   await loadGraph();
 }
