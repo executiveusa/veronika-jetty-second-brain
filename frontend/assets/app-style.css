@@ -656,15 +656,33 @@ html[data-viewport="tablet"] #app-footer {
   }
   #nav {
     padding: 10px 12px 12px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
     backdrop-filter: blur(14px);
+  }
+  #brand-mark {
+    gap: 10px;
+    min-width: 0;
+  }
+  .brand-text {
+    min-width: 0;
+  }
+  .brand-name {
+    font-size: 13px;
+  }
+  .brand-city {
+    font-size: 10px;
   }
   #nav-controls {
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 6px;
+    width: 100%;
   }
   .nav-pill {
     min-width: 0;
+    flex: 1 1 120px;
   }
   .pill-label {
     display: none;
@@ -674,6 +692,10 @@ html[data-viewport="tablet"] #app-footer {
   }
   #nav-controls { gap: 5px; }
   .nav-pill { padding: 5px 10px; }
+  .nav-pill select {
+    max-width: 94px;
+    font-size: 11.5px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -691,8 +713,11 @@ html[data-viewport="tablet"] #app-footer {
     gap: 4px;
   }
   .nav-pill {
-    width: calc(50vw - 16px);
+    width: 100%;
     min-width: 0;
+  }
+  .nav-pill select {
+    max-width: 82px;
   }
   #knowledge-panel,
   #chat-dock,
@@ -707,6 +732,48 @@ html[data-viewport="tablet"] #app-footer {
   }
   .site-footer {
     font-size: 10px;
+  }
+}
+
+@media (max-width: 360px) {
+  #nav {
+    padding: 8px 8px 10px;
+  }
+  .jetty-orb {
+    width: 28px;
+    height: 28px;
+  }
+  .brand-name {
+    font-size: 12px;
+  }
+  .brand-city {
+    font-size: 9px;
+  }
+  .nav-pill {
+    padding: 4px 8px;
+  }
+  .nav-pill select {
+    max-width: 72px;
+    font-size: 11px;
+  }
+  #knowledge-panel {
+    width: calc(100vw - 14px);
+    padding: 14px;
+  }
+  #chat-dock {
+    width: calc(100vw - 14px);
+    padding: 8px;
+    gap: 6px;
+  }
+  #query-input {
+    font-size: 15px;
+  }
+  #answer-display {
+    font-size: 12.5px;
+  }
+  #app-footer {
+    width: calc(100vw - 14px);
+    font-size: 8.5px;
   }
 }
 

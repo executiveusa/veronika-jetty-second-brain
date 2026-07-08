@@ -1,6 +1,6 @@
 # EMERALD TABLETS™
 ## Prime Directive — JETTY™ AI Second Brain v1.3
-### Authority: Kupuri Media™ × Akash Engine × Pauli Effect™
+### Authority: The Pauli Effect™
 ### Installed: 2026-07-06 | Root Location: /.emerald-tablets/
 ### License: Commercial — Revocable if delivered system quality < 8.5/10
 
