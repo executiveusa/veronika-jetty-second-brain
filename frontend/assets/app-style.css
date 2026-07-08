@@ -1,5 +1,5 @@
 /* JETTY™ — Spiral Jetty Design System
- * Kupuri Media™ × Akash Engine | Emerald Tablets™
+ * The Pauli Effect | Emerald Tablets™
  * Sourced from: Robert Smithson's Spiral Jetty, Great Salt Lake, Utah */
 
 :root {
@@ -77,6 +77,8 @@ body::before {
   display: flex;
   align-items: center;
   gap: 12px;
+  text-decoration: none;
+  color: inherit;
 }
 
 /* JETTY™ ORB */
@@ -283,6 +285,124 @@ body::before {
   margin-bottom: 8px;
 }
 
+#history-view {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+#new-chat-btn {
+  background: transparent;
+  border: 1px solid rgba(254,254,254,.18);
+  color: var(--salt-mute);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+
+#new-chat-btn:hover {
+  border-color: var(--brand);
+  color: var(--salt);
+  background: rgba(200,51,111,.08);
+}
+
+#clear-history-btn {
+  background: transparent;
+  border: 1px solid rgba(254,254,254,.18);
+  color: var(--salt-mute);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+
+#clear-history-btn:hover {
+  border-color: var(--brand);
+  color: var(--salt);
+  background: rgba(200,51,111,.08);
+}
+
+#history-list {
+  display: grid;
+  gap: 8px;
+}
+
+#history-thread {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.history-thread-item {
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(254,254,254,.08);
+  color: var(--salt-dim);
+  font-family: var(--font);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.history-thread-item strong {
+  display: block;
+  color: var(--salt);
+  margin-bottom: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.history-item {
+  width: 100%;
+  text-align: left;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(254,254,254,.08);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  color: var(--salt-dim);
+  font-family: var(--font);
+  font-size: 12px;
+  line-height: 1.45;
+  cursor: pointer;
+  transition: border-color .14s, color .14s, background .14s, transform .14s;
+}
+
+.history-item:hover {
+  border-color: var(--brand-border);
+  background: rgba(200,51,111,.08);
+  color: var(--salt);
+  transform: translateY(-1px);
+}
+
+.history-item .history-meta {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--salt-mute);
+}
+
 .quick-q {
   display: block;
   width: 100%;
@@ -433,6 +553,21 @@ body::before {
 
 #toast-msg.visible { opacity: 1; }
 
+/* APP FOOTER */
+#app-footer {
+  position: fixed;
+  left: 22px;
+  bottom: 18px;
+  z-index: 18;
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: rgba(243, 231, 218, .36);
+  pointer-events: none;
+  user-select: none;
+}
+
 /* TOOLTIP from 3D graph */
 .scene-tooltip {
   font-family: var(--font);
@@ -460,6 +595,13 @@ body::before {
     grid-template-columns: 42px 1fr 42px;
     gap: 8px;
     padding: 8px 10px;
+  }
+  #app-footer {
+    left: 14px;
+    right: 14px;
+    bottom: 74px;
+    font-size: 9px;
+    text-align: center;
   }
   #nav-controls { gap: 5px; }
   .nav-pill { padding: 5px 10px; }

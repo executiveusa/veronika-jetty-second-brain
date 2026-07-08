@@ -1,0 +1,8 @@
+{
+  "name": "veronika-jetty-second-brain",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:frontend": "node scripts/build-frontend.mjs"
+  }
+}

@@ -4,28 +4,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0f0a12">
-<title>JETTY™ — Your AI Second Brain</title>
+<title>Jetty&trade; - Your AI Second Brain</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/app-style.css">
-<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-<script src="https://unpkg.com/3d-force-graph@1.73.4/dist/3d-force-graph.min.js"></script>
+<script src="/config.js"></script>
+<script src="https://unpkg.com/force-graph@1.48.0/dist/force-graph.min.js"></script>
 </head>
 <body>
 
 <div id="galaxy-canvas" aria-hidden="true"></div>
 
 <header id="nav" role="banner">
-  <div id="brand-mark">
+  <a id="brand-mark" href="/" aria-label="Return to Jetty home">
     <div class="jetty-orb" id="orb" aria-hidden="true">
       <div class="orb-core"></div>
       <div class="orb-ring"></div>
     </div>
     <div class="brand-text">
-      <span class="brand-name">JETTY™</span>
+      <span class="brand-name">JETTY&trade;</span>
       <span class="brand-city">Salt Lake City</span>
     </div>
-  </div>
+  </a>
 
   <div id="nav-controls">
     <div class="nav-pill" id="voice-pill">
@@ -36,9 +36,12 @@
       <span class="pill-label">Brain</span>
       <select id="model-select" title="Choose AI model" aria-label="Choose AI model">
         <option value="anthropic">Claude</option>
-        <option value="openai">GPT-4o</option>
+        <option value="openai">ChatGPT / OpenAI</option>
+        <option value="synthia">ChatGPT via Synthia</option>
         <option value="groq">Groq (Free)</option>
+        <option value="deepseek">DeepSeek</option>
         <option value="mistral">Mistral (Free)</option>
+        <option value="hermes">Hermes</option>
       </select>
     </div>
     <div class="nav-pill status-pill">
@@ -51,10 +54,19 @@
 <aside id="knowledge-panel" role="complementary" aria-label="Knowledge vault">
   <div class="panel-eyebrow">Your knowledge vault</div>
   <h1 id="panel-headline">Your thinking, coiled.</h1>
-  <p class="panel-body" id="panel-subtext">Each star is a note. Each connection is a relationship JETTY™ found between your ideas.</p>
+  <p class="panel-body" id="panel-subtext">Each star is a note. Each connection is a relationship Jetty found between your ideas.</p>
   <div id="source-view" aria-live="polite"></div>
+  <div id="history-view" aria-live="polite">
+    <div class="history-header">
+      <span class="panel-eyebrow">Previous chats</span>
+      <button type="button" id="new-chat-btn">New chat</button>
+      <button type="button" id="clear-history-btn">Clear</button>
+    </div>
+    <div id="history-list"></div>
+    <div id="history-thread"></div>
+  </div>
   <div id="quick-questions">
-    <p class="panel-eyebrow" style="margin-top:20px">Ask JETTY™</p>
+    <p class="panel-eyebrow" style="margin-top:20px">Ask Jetty</p>
     <button class="quick-q" onclick="ask('How do I export my data from ChatGPT?')">Export ChatGPT history</button>
     <button class="quick-q" onclick="ask('What free AI tools should I be using?')">Free AI tools guide</button>
     <button class="quick-q" onclick="ask('Help me write a cover letter for a SLC startup')">Cover letter for SLC</button>
@@ -62,16 +74,16 @@
   </div>
 </aside>
 
-<section id="chat-dock" role="main" aria-label="Chat with JETTY">
-  <button id="mic-btn" class="icon-btn" title="Speak to JETTY" aria-label="Start voice input">
+<section id="chat-dock" role="main" aria-label="Chat with Jetty">
+  <button id="mic-btn" class="icon-btn" title="Speak to Jetty" aria-label="Start voice input">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
   </button>
 
   <div class="input-column">
     <input id="query-input" type="text"
-      placeholder="Ask anything, or say: remember that…"
+      placeholder="Ask anything, or say: remember that..."
       autocomplete="off"
-      aria-label="Message JETTY">
+      aria-label="Message Jetty">
     <div id="answer-display" aria-live="polite" aria-atomic="true"></div>
   </div>
 
@@ -81,6 +93,7 @@
 </section>
 
 <div id="toast-msg" role="alert" aria-live="assertive"></div>
+<footer id="app-footer" aria-label="Beta notice">Beta system. We appreciate your feedback.</footer>
 
 <script src="/assets/app.js"></script>
 </body>

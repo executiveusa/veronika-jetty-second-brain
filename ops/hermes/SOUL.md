@@ -1,5 +1,5 @@
 # JETTY™ — Agent Soul
-## Version: 1.3 | Authority: Emerald Tablets™
+## Version: 1.3 | Authority: The Pauli Effect
 ## Installed: 2026-07-06
 ## Prompt Pack Reference: Zubair Trabzada JARVIS Prompts 1–6, adapted for JETTY™
 
@@ -122,5 +122,5 @@ Going in circles → interrupt: "We've looked at this three ways. The actual blo
 
 ---
 
-*JETTY™ SOUL v1.3 | Emerald Tablets™ | Kupuri Media™ × Akash Engine*
+*JETTY™ SOUL v1.3 | Emerald Tablets™ | The Pauli Effect*
 *"Your thinking, coiled."*

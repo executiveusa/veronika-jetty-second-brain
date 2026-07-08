@@ -3,7 +3,7 @@
   const canvas = document.getElementById('wave-canvas');
   const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
   const img = new Image();
-  img.src = '/assets/jetty-hero.png';
+  img.src = '/assets/jetty-hero-clean.png';
 
   const state = {
     dpr: Math.min(window.devicePixelRatio || 1, 2),

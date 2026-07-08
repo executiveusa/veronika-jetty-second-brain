@@ -1,0 +1,18 @@
+{
+  "buildCommand": "npm run build:frontend",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "http://31.220.58.212:4700/api/:path*"
+    },
+    {
+      "source": "/app",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/brain",
+      "destination": "/app.html"
+    }
+  ]
+}

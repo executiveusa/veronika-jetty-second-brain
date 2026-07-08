@@ -1,7 +1,7 @@
 /**
  * JETTY™ — Spiral Jetty AI Second Brain
  * Frontend Application Logic
- * Kupuri Media™ × Akash Engine | Emerald Tablets™
+ * The Pauli Effect | Emerald Tablets™
  *
  * Stocks:  graph data, session history, voice selection, model selection
  * Flows:   user input → HERMES API → Claude/Groq/Mistral/OpenAI → response
@@ -15,10 +15,53 @@ const STATE = {
   model:    localStorage.getItem('jetty_model')  || 'anthropic',
   voice:    localStorage.getItem('jetty_voice')  || null,
   unlocked: false,
+  sessions: [],
+  thread:   [],
+  threadSessionId: localStorage.getItem('jetty_selected_session') || sessionStorage.getItem('jetty_session') || crypto.randomUUID(),
 };
 sessionStorage.setItem('jetty_session', STATE.session);
 
 const $ = id => document.getElementById(id);
+
+function apiBase() {
+  const cfg = window.JETTY_CONFIG?.apiBaseUrl || localStorage.getItem('jetty_api_base') || '';
+  if (cfg) return cfg.replace(/\/+$/, '');
+  return `${window.location.protocol}//${window.location.hostname}:4700`;
+}
+
+function apiUrl(path) {
+  const base = apiBase();
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (!base) return cleanPath;
+  if (/^https?:\/\//i.test(base)) return `${base}${cleanPath}`;
+  if (base.startsWith('/')) {
+    return cleanPath.startsWith(base) ? cleanPath : `${base}${cleanPath}`;
+  }
+  return `${base}${cleanPath}`;
+}
+
+async function syncPreferredModel() {
+  try {
+    const r = await fetch(apiUrl('/api/health'));
+    if (!r.ok) return;
+    const j = await r.json();
+    const available = j.providers || {};
+    const saved = STATE.model;
+    if (saved && available[saved]) {
+      $('model-select').value = saved;
+      return;
+    }
+    const preferred = ['anthropic', 'groq', 'deepseek', 'openai', 'synthia', 'mistral', 'hermes']
+      .find(name => available[name]);
+    if (preferred) {
+      STATE.model = preferred;
+      localStorage.setItem('jetty_model', STATE.model);
+      $('model-select').value = STATE.model;
+    }
+  } catch {
+    // Keep the saved provider if the health check is unavailable.
+  }
+}
 
 // ── STATUS ────────────────────────────────────────────────────────
 function setStatus(text, mode = 'ready') {
@@ -33,6 +76,102 @@ function toast(msg, ms = 2600) {
   t.textContent = msg;
   t.classList.add('visible');
   setTimeout(() => t.classList.remove('visible'), ms);
+}
+
+function saveHistory() {
+  localStorage.setItem('jetty_selected_session', STATE.threadSessionId);
+}
+
+function renderHistory() {
+  const list = $('history-list');
+  if (!list) return;
+  const items = STATE.sessions;
+  if (!items.length) {
+    list.innerHTML = '<div class="history-item" style="cursor:default">No previous chats yet.<span class="history-meta">Your saved threads will appear here.</span></div>';
+    return;
+  }
+  list.innerHTML = items.map(item => `
+    <button type="button" class="history-item" data-history-id="${item.id}">
+      ${item.preview || item.title || 'Previous chat'}
+      <span class="history-meta">${item.message_count || 0} messages · ${item.last_seen || ''}</span>
+    </button>
+  `).join('');
+  list.querySelectorAll('[data-history-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const hit = STATE.sessions.find(entry => entry.id === btn.dataset.historyId);
+      if (!hit) return;
+      STATE.session = hit.session_id;
+      STATE.threadSessionId = hit.session_id;
+      sessionStorage.setItem('jetty_session', hit.session_id);
+      localStorage.setItem('jetty_selected_session', hit.session_id);
+      loadThread(hit.session_id);
+    });
+  });
+}
+
+function renderThread() {
+  const thread = $('history-thread');
+  if (!thread) return;
+  if (!STATE.thread.length) {
+    thread.innerHTML = '<div class="history-thread-item">Open a previous chat to see the messages here.</div>';
+    return;
+  }
+  thread.innerHTML = STATE.thread.map(item => `
+    <div class="history-thread-item">
+      <strong>${item.role === 'assistant' ? 'Jetty' : 'You'}</strong>
+      ${item.content}
+    </div>
+  `).join('');
+}
+
+async function loadSessions() {
+  try {
+    const r = await fetch(apiUrl('/api/sessions'));
+    if (!r.ok) return renderHistory();
+    const j = await r.json();
+    const sessions = Array.isArray(j.sessions) ? j.sessions : [];
+    STATE.sessions = sessions.map((item, idx) => ({ ...item, id: `${item.session_id}:${idx}` }));
+    renderHistory();
+    const selected = STATE.sessions.find(x => x.session_id === STATE.threadSessionId) || STATE.sessions[0];
+    if (selected) await loadThread(selected.session_id);
+    else renderThread();
+  } catch {
+    renderHistory();
+  }
+}
+
+async function loadThread(sessionId) {
+  try {
+    const r = await fetch(apiUrl(`/api/history?session_id=${encodeURIComponent(sessionId)}`));
+    if (!r.ok) throw new Error('History unavailable');
+    const j = await r.json();
+    STATE.thread = Array.isArray(j.turns) ? j.turns : [];
+    STATE.threadSessionId = j.session_id || sessionId;
+    sessionStorage.setItem('jetty_session', STATE.threadSessionId);
+    localStorage.setItem('jetty_selected_session', STATE.threadSessionId);
+    renderThread();
+    const lastUser = [...STATE.thread].reverse().find(item => item.role === 'user');
+    const lastAssistant = [...STATE.thread].reverse().find(item => item.role === 'assistant');
+    if (lastUser) $('query-input').value = lastUser.content;
+    if (lastAssistant) $('answer-display').textContent = lastAssistant.content;
+  } catch {
+    STATE.thread = [];
+    renderThread();
+  }
+}
+
+function identityReply(text) {
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) return null;
+  const asksWhoBuilt =
+    /^(who built you|who made you|who created you|who is behind this|who made this|who built this|who built jetty|who made jetty|who created jetty)\??$/.test(normalized) ||
+    /\b(who|what team)\b.*\b(built|made|created|behind)\b/.test(normalized);
+  if (!asksWhoBuilt) return null;
+  return 'The team at The Pauli Effect built me, a faceless group of volunteers building AI-powered solutions to promote human well being and inclusion.';
+}
+
+function rememberChat(user, assistant, kind = 'chat') {
+  addHistoryEntry(user, assistant, kind);
 }
 
 // ── VOICE SETUP ───────────────────────────────────────────────────
@@ -76,9 +215,12 @@ $('model-select').addEventListener('change', function () {
   localStorage.setItem('jetty_model', STATE.model);
   const names = {
     anthropic: 'Claude',
-    openai:    'GPT-4o',
+    openai:    'ChatGPT / OpenAI',
+    synthia:   'ChatGPT via Synthia',
     groq:      'Groq (free)',
+    deepseek:  'DeepSeek',
     mistral:   'Mistral (free)',
+    hermes:    'Hermes',
   };
   toast(`Brain: ${names[STATE.model]}`);
 });
@@ -148,12 +290,10 @@ function focusNode(id) {
   const n = STATE.data.nodes.find(x => x.id === id);
   if (!n) return;
   showSource(n);
-  const dist = 90;
-  const len = Math.hypot(n.x || 1, n.y || 1, n.z || 1) || 1;
-  STATE.graph.cameraPosition(
-    { x: (n.x||1)/len*dist, y: (n.y||1)/len*dist, z: (n.z||1)/len*dist },
-    n, 1400
-  );
+  const x = Number.isFinite(n.x) ? n.x : 0;
+  const y = Number.isFinite(n.y) ? n.y : 0;
+  STATE.graph.centerAt(x, y, 900);
+  STATE.graph.zoom(4, 900);
   const hood = neighbors(id);
   STATE.graph
     .nodeColor(node => hood.has(node.id) ? '#c8336f' : nodeColor(node.group))
@@ -171,16 +311,14 @@ function lightCluster(ids) {
 
 function initGalaxy(data) {
   const elem = $('galaxy-canvas');
-  STATE.graph = ForceGraph3D()(elem)
+  STATE.graph = ForceGraph()(elem)
     .backgroundColor('#0f0a12')
     .graphData(data)
     .nodeId('id')
     .nodeLabel(n => `<div class="scene-tooltip">${n.label}</div>`)
     .nodeColor(n => nodeColor(n.group))
     .nodeRelSize(4)
-    .nodeOpacity(.92)
     .linkColor(() => 'rgba(200,51,111,.18)')
-    .linkOpacity(.5)
     .linkWidth(0.7)
     .onNodeClick(n => {
       STATE.unlocked = true;
@@ -194,7 +332,7 @@ function initGalaxy(data) {
 // ── GRAPH LOAD ────────────────────────────────────────────────────
 async function loadGraph() {
   try {
-    const r = await fetch('/api/graph');
+    const r = await fetch(apiUrl('/api/graph'));
     if (!r.ok) throw new Error(`Server ${r.status}`);
     STATE.data = await r.json();
     const count = STATE.data.count || STATE.data.nodes.length;
@@ -209,6 +347,7 @@ async function loadGraph() {
 
     initGalaxy(STATE.data);
     setStatus('ready');
+    loadSessions();
 
     // Speak boot greeting on first user interaction (browser audio gate)
     const greet = () => { speak(bootMsg, true); document.removeEventListener('click', greet); };
@@ -227,6 +366,16 @@ async function ask(text) {
   if (!text) return;
   STATE.unlocked = true;
 
+  const identity = identityReply(text);
+  if (identity) {
+    $('query-input').value = '';
+    $('answer-display').textContent = identity;
+    speak(identity);
+    await loadSessions();
+    setStatus('ready');
+    return;
+  }
+
   $('query-input').value = '';
   $('answer-display').textContent = '';
   setStatus('thinking…', 'thinking');
@@ -237,7 +386,7 @@ async function ask(text) {
     const isRemember = /^remember that/i.test(text);
 
     if (isRemember) {
-      const r = await fetch('/api/remember', {
+      const r = await fetch(apiUrl('/api/remember'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ text, session_id: STATE.session }),
@@ -248,13 +397,14 @@ async function ask(text) {
       STATE.graph.graphData(STATE.data);
       $('answer-display').textContent = j.answer;
       speak(j.answer);
+      await loadSessions();
       setTimeout(() => focusNode(j.node.id), 400);
       toast('⭐ New star in your galaxy');
       setStatus('saved');
       return;
     }
 
-    const r = await fetch('/api/chat', {
+    const r = await fetch(apiUrl('/api/chat'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -267,6 +417,7 @@ async function ask(text) {
     if (!r.ok) throw new Error(j.detail || 'Query failed');
     $('answer-display').textContent = j.answer;
     speak(j.answer);
+    await loadSessions();
     if (j.nodes?.length) lightCluster(j.nodes);
     setStatus('ready');
 
@@ -299,9 +450,33 @@ $('mic-btn').onclick = () => {
 
 // ── EVENT WIRING ──────────────────────────────────────────────────
 $('send-btn').onclick = () => ask();
+$('new-chat-btn').onclick = () => {
+  STATE.session = crypto.randomUUID();
+  STATE.threadSessionId = STATE.session;
+  sessionStorage.setItem('jetty_session', STATE.session);
+  localStorage.setItem('jetty_selected_session', STATE.session);
+  STATE.thread = [];
+  renderThread();
+  $('query-input').value = '';
+  $('answer-display').textContent = '';
+  toast('New chat ready');
+};
+$('clear-history-btn').onclick = () => {
+  localStorage.removeItem('jetty_selected_session');
+  STATE.sessions = [];
+  STATE.thread = [];
+  renderHistory();
+  renderThread();
+  toast('History cleared from view');
+};
 $('query-input').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); }
 });
 document.body.addEventListener('click', () => { STATE.unlocked = true; }, { once: true });
 
-loadGraph();
+async function boot() {
+  await syncPreferredModel();
+  await loadGraph();
+}
+
+boot();

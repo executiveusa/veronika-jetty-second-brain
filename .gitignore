@@ -11,6 +11,13 @@ __pycache__/
 .vscode/
 .idea/
 
+# Build output
+dist/
+
+# Local smoke logs
+backend-smoke*.log
+
 # OS specific files
 Thumbs.db
 .DS_Store
+.vercel

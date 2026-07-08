@@ -1,5 +1,5 @@
 # JETTY™ — Complete UI/UX Design Specification
-## Version 1.0 | Kupuri Media™ × Akash Engine
+## Version 1.0 | The Pauli Effect
 ## Authority: Emerald Tablets™ | Quality Floor: UDEC 9.0/10
 
 ---
@@ -685,6 +685,6 @@ The AI persona installed via `ops/hermes/SOUL.md`:
 ---
 
 *JETTY™ Design System v1.0*
-*Kupuri Media™ × Akash Engine*
+*The Pauli Effect*
 *Emerald Tablets™ Quality Floor: UDEC 9.0/10*
 *"The structure of the system determines the behavior. Design the structure."*

@@ -1,6 +1,6 @@
 # JETTY™
 ## Your AI Second Brain — Salt Lake City
-### Kupuri Media™ × Akash Engine | Emerald Tablets™
+### The Pauli Effect | Emerald Tablets™
 
 > *"Your thinking, coiled."*
 
@@ -162,7 +162,7 @@ Agent handoff is zero-context: any agent can read this README + ops/reports/ and
 
 ---
 
-*JETTY™ v1.0 | Kupuri Media™ × Akash Engine*
+*JETTY™ v1.0 | The Pauli Effect*
 *Emerald Tablets™ Quality Floor: UDEC 9.0/10*
 *"Your thinking, coiled."*
 
