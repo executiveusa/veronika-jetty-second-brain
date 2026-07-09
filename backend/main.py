@@ -308,7 +308,7 @@ async def call_llm(message: str, contexts: List[Note], history: List[Dict[str, s
             base_url = SYNTHIA_GATEWAY_BASE_URL or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
             key = SYNTHIA_GATEWAY_API_KEY or os.getenv("OPENAI_API_KEY")
             if not key:
-                raise HTTPException(503, "SYNTHIA_GATEWAY_API_KEY or OPENAI_API_KEY missing.")
+                raise HTTPException(503, "SynthIA BYOK is active. Veronika, please set your OPENAI_API_KEY in the Cosmos Vault (.env) to allow Jetty to utilize your ChatGPT subscription.")
             try:
                 return await openai_compatible(base_url, key, SYNTHIA_GATEWAY_MODEL)
             except HTTPException:
