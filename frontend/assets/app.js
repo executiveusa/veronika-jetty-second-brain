@@ -26,7 +26,11 @@ const $ = id => document.getElementById(id);
 function apiBase() {
   const cfg = window.JETTY_CONFIG?.apiBaseUrl || localStorage.getItem('jetty_api_base') || '';
   if (cfg) return cfg.replace(/\/+$/, '');
-  return `${window.location.protocol}//${window.location.hostname}:4700`;
+  const host = window.location.hostname || '';
+  if (host === 'localhost' || host === '127.0.0.1' || window.location.protocol === 'file:') {
+    return 'http://localhost:4700';
+  }
+  return '';
 }
 
 function apiUrl(path) {
