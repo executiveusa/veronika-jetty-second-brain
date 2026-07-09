@@ -456,7 +456,22 @@ $('mic-btn').onclick = () => {
   rec.lang = 'en-US';
   rec.interimResults = false;
   rec.onstart  = () => { setStatus('listening…', 'thinking'); $('mic-btn').classList.add('listening'); };
-  rec.onerror  = () => { setStatus('mic error', 'error');     $('mic-btn').classList.remove('listening'); };
+  rec.onerror  = e => {
+    $('mic-btn').classList.remove('listening');
+    let msg = 'Microphone error.';
+    if (e.error === 'not-allowed') {
+      msg = 'Microphone permission denied. Please check your browser settings.';
+    } else if (e.error === 'no-speech') {
+      msg = 'No speech detected. Please try speaking again.';
+    } else if (e.error === 'audio-capture') {
+      msg = 'Microphone hardware not found. Please connect a mic.';
+    } else if (e.error === 'network') {
+      msg = 'Network error occurred during speech recognition.';
+    }
+    setStatus('mic error', 'error');
+    $('answer-display').textContent = msg;
+    toast(msg);
+  };
   rec.onresult = e => { $('mic-btn').classList.remove('listening'); ask(e.results[0][0].transcript); };
   rec.onend    = () => { $('mic-btn').classList.remove('listening'); };
   rec.start();

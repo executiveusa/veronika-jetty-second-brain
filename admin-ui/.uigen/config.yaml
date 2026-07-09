@@ -1,0 +1,54 @@
+version: '1.0'
+enabled: {}
+defaults: {}
+annotations:
+  # App metadata
+  document:
+    x-uigen-app:
+      title: "JETTY™ Knowledge Vault Manager"
+      theme: "dark"
+      primaryColor: "#c8336f" # Basalt/Jetty Pink
+
+  # Ignore internal/debug/chat endpoints
+  GET:/api/health:
+    x-uigen-ignore: true
+  GET:/api/voices:
+    x-uigen-ignore: true
+  GET:/api/sessions:
+    x-uigen-ignore: true
+  GET:/api/history:
+    x-uigen-ignore: true
+  GET:/config.js:
+    x-uigen-ignore: true
+  GET:/:
+    x-uigen-ignore: true
+  GET:/app:
+    x-uigen-ignore: true
+  GET:/brain:
+    x-uigen-ignore: true
+
+  # Label graph & chat endpoints (these are kept but labeled)
+  GET:/api/graph:
+    x-uigen-label: "View Knowledge Galaxy"
+  POST:/api/chat:
+    x-uigen-label: "Ask JETTY"
+  POST:/api/remember:
+    x-uigen-label: "Save Note to Vault"
+
+  # Configure Notes CRUD
+  GET:/api/notes:
+    x-uigen-label: "List Notes"
+  POST:/api/notes:
+    x-uigen-label: "Create New Note"
+  GET:/api/notes/{note_id}:
+    x-uigen-label: "View Note Detail"
+  DELETE:/api/notes/{note_id}:
+    x-uigen-label: "Delete Note"
+
+  # Field Labels
+  NoteCreate.title:
+    x-uigen-label: "Note Title"
+  NoteCreate.content:
+    x-uigen-label: "Content (Markdown)"
+  NoteCreate.group:
+    x-uigen-label: "Folder Group (e.g. captures, ideas)"

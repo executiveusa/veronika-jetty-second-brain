@@ -48,7 +48,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if "*" in ALLOWED_ORIGINS else ALLOWED_ORIGINS,
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "DELETE", "PUT", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -418,6 +418,104 @@ def history(session_id: str = "default"):
 @app.get("/api/sessions")
 def sessions():
     return {"sessions": list_chat_sessions()}
+
+class NoteCreate(BaseModel):
+    title: str
+    content: str
+    group: Optional[str] = "Root"
+
+class NoteResponse(BaseModel):
+    id: int
+    title: str
+    group: str
+    path: str
+    content: str
+
+@app.get("/api/notes", response_model=List[NoteResponse])
+def get_notes():
+    notes = load_notes()
+    res = []
+    for n in notes:
+        note_file = NOTES_DIR / n.path
+        content = ""
+        if note_file.exists():
+            content = note_file.read_text(encoding="utf-8", errors="ignore")
+        res.append(NoteResponse(
+            id=n.id,
+            title=n.label,
+            group=n.group,
+            path=n.path,
+            content=content
+        ))
+    return res
+
+@app.get("/api/notes/{note_id}", response_model=NoteResponse)
+def get_note(note_id: int):
+    notes = load_notes()
+    for n in notes:
+        if n.id == note_id:
+            note_file = NOTES_DIR / n.path
+            content = ""
+            if note_file.exists():
+                content = note_file.read_text(encoding="utf-8", errors="ignore")
+            return NoteResponse(
+                id=n.id,
+                title=n.label,
+                group=n.group,
+                path=n.path,
+                content=content
+            )
+    raise HTTPException(404, "Note not found.")
+
+@app.post("/api/notes", response_model=NoteResponse)
+def create_note(note: NoteCreate):
+    group_name = re.sub(r"[^a-zA-Z0-9_-]", "", note.group or "Root")
+    title_clean = re.sub(r"[^a-zA-Z0-9_-]", "-", note.title.strip().lower())
+    filename = f"{title_clean}.md"
+    
+    target_dir = NOTES_DIR
+    if group_name != "Root":
+        target_dir = NOTES_DIR / group_name
+    target_dir.mkdir(parents=True, exist_ok=True)
+    
+    note_path = target_dir / filename
+    if note_path.exists():
+        note_path = target_dir / f"{title_clean}-{int(time.time())}.md"
+        
+    note_path.write_text(f"# {note.title}\n\n{note.content}\n", encoding="utf-8")
+    
+    build_graph(force=True)
+    notes = load_notes()
+    rel_path = str(note_path.relative_to(NOTES_DIR))
+    for n in notes:
+        if n.path == rel_path:
+            return NoteResponse(
+                id=n.id,
+                title=n.label,
+                group=n.group,
+                path=n.path,
+                content=note.content
+            )
+    
+    return NoteResponse(
+        id=len(notes),
+        title=note.title,
+        group=group_name,
+        path=rel_path,
+        content=note.content
+    )
+
+@app.delete("/api/notes/{note_id}")
+def delete_note(note_id: int):
+    notes = load_notes()
+    for n in notes:
+        if n.id == note_id:
+            note_file = NOTES_DIR / n.path
+            if note_file.exists():
+                note_file.unlink()
+                build_graph(force=True)
+                return {"ok": True, "message": "Note deleted successfully."}
+    raise HTTPException(404, "Note not found.")
 
 @app.get("/config.js")
 def config_js():
