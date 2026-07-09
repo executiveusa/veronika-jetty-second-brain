@@ -28,7 +28,7 @@ services:
       HERMES_AGENT_API:   ${HERMES_AGENT_API}
       HERMES_BASE_URL:    ${HERMES_BASE_URL:-https://inference-api.nousresearch.com/v1}
       COMPOSIO_API_TOKEN: ${COMPOSIO_API_TOKEN}
-      VERONIKA_PG_DSN:    postgresql://supabase_admin:072090156d28a9df6502d94083e47990@supabase-pooler:5432/postgres
+      VERONIKA_PG_DSN:    postgresql://supabase_admin:072090156d28a9df6502d94083e47990@10.0.6.12:5434/postgres
       ALLOWED_ORIGINS:    ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
       RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-45}
       MAX_HISTORY:        ${MAX_HISTORY:-6}
