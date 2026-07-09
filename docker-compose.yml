@@ -20,24 +20,35 @@ services:
       SYNTHIA_GATEWAY_API_KEY:  ${SYNTHIA_GATEWAY_API_KEY}
       SYNTHIA_GATEWAY_MODEL:    ${SYNTHIA_GATEWAY_MODEL:-gpt-4o-mini}
       GROQ_API_KEY:       ${GROQ_API_KEY}
-      GROQ_MODEL:         ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      GROQ_MODEL:         ${GROQ_MODEL:-llama-3.1-8b-instant}
       DEEPSEEK_API_KEY:   ${DEEPSEEK_API_KEY}
-      DEEPSEEK_MODEL:     ${DEEPSEEK_MODEL:-deepseek-v4-flash}
+      DEEPSEEK_MODEL:     ${DEEPSEEK_MODEL:-deepseek-chat}
       MISTRAL_API_KEY:    ${MISTRAL_API_KEY}
       MISTRAL_MODEL:      ${MISTRAL_MODEL:-mistral-small-latest}
       HERMES_AGENT_API:   ${HERMES_AGENT_API}
       HERMES_BASE_URL:    ${HERMES_BASE_URL:-https://inference-api.nousresearch.com/v1}
       COMPOSIO_API_TOKEN: ${COMPOSIO_API_TOKEN}
+      VERONIKA_PG_DSN:    postgresql://supabase_admin:072090156d28a9df6502d94083e47990@supabase-db:5432/postgres
       ALLOWED_ORIGINS:    ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
       RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-45}
-      MAX_HISTORY:        ${MAX_HISTORY:-10}
+      MAX_HISTORY:        ${MAX_HISTORY:-6}
+      MAX_TOP_NOTES:      ${MAX_TOP_NOTES:-4}
       PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:4700}
     volumes:
       - ./notes:/app/notes
       - ./ops:/app/ops
     restart: unless-stopped
+    networks:
+      - default
+      - supabase_external
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4700/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+
+networks:
+  default: {}
+  supabase_external:
+    external: true
+    name: supabase_default
