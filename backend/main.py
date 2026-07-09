@@ -1,34 +1,49 @@
 from __future__ import annotations
 
-import json, os, re, time, math, hashlib
+import json, os, re, time, math, hashlib, asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+
+# ── Supabase / Postgres memory (veronika_jetty schema) ─────────────────────
+try:
+    import asyncpg  # type: ignore
+    _PG_AVAILABLE = True
+except ImportError:
+    _PG_AVAILABLE = False
+
+_PG_POOL: Any = None  # asyncpg.Pool, initialised on startup
+
+SUPABASE_PG_DSN = os.getenv(
+    "VERONIKA_PG_DSN",
+    "postgresql://supabase_admin:072090156d28a9df6502d94083e47990@127.0.0.1:5434/postgres"
+)
 
 ROOT       = Path(__file__).resolve().parents[1]
 NOTES_DIR  = Path(os.getenv("NOTES_DIR", ROOT / "notes")).resolve()
 FRONTEND_DIR = ROOT / "frontend"
 APP_NAME   = os.getenv("APP_NAME", "JETTY")
 APP_REGION = os.getenv("APP_REGION", "Salt Lake City, Utah")
-MODEL_PROVIDER   = os.getenv("MODEL_PROVIDER", "anthropic").lower().strip()
-ANTHROPIC_MODEL  = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+MODEL_PROVIDER   = os.getenv("MODEL_PROVIDER", "groq").lower().strip()
+ANTHROPIC_MODEL  = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")  # fastest claude
 OPENAI_MODEL     = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-GROQ_MODEL       = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-DEEPSEEK_MODEL   = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+# llama-3.1-8b-instant: Groq's fastest free model ~200 tok/s
+GROQ_MODEL       = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+DEEPSEEK_MODEL   = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 MISTRAL_MODEL    = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
 HERMES_MODEL     = os.getenv("HERMES_MODEL", "openai/gpt-5.5")
 SYNTHIA_GATEWAY_BASE_URL = os.getenv("SYNTHIA_GATEWAY_BASE_URL", "").rstrip("/")
 SYNTHIA_GATEWAY_API_KEY  = os.getenv("SYNTHIA_GATEWAY_API_KEY", "")
 SYNTHIA_GATEWAY_MODEL    = os.getenv("SYNTHIA_GATEWAY_MODEL", OPENAI_MODEL)
-MAX_HISTORY      = int(os.getenv("MAX_HISTORY", "10"))
-MAX_TOP_NOTES    = int(os.getenv("MAX_TOP_NOTES", "6"))
+MAX_HISTORY      = int(os.getenv("MAX_HISTORY", "6"))   # trimmed for speed
+MAX_TOP_NOTES    = int(os.getenv("MAX_TOP_NOTES", "4"))  # fewer notes = faster
 PUBLIC_ORIGIN    = os.getenv("PUBLIC_ORIGIN", "*")
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "45"))
 ALLOWED_ORIGINS = [
@@ -43,7 +58,7 @@ if not ALLOWED_ORIGINS:
 _soul_path = ROOT / "ops" / "hermes" / "SOUL.md"
 OPERATOR_SOUL = _soul_path.read_text(encoding="utf-8") if _soul_path.exists() else ""
 
-app = FastAPI(title=APP_NAME, version="2.0.0")
+app = FastAPI(title=APP_NAME, version="2.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if "*" in ALLOWED_ORIGINS else ALLOWED_ORIGINS,
@@ -51,6 +66,26 @@ app.add_middleware(
     allow_methods=["GET", "POST", "DELETE", "PUT", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_db():
+    global _PG_POOL
+    if not _PG_AVAILABLE:
+        print("[JETTY] asyncpg not installed — falling back to JSONL memory")
+        return
+    try:
+        _PG_POOL = await asyncpg.create_pool(
+            SUPABASE_PG_DSN, min_size=1, max_size=4, timeout=5
+        )
+        print(f"[JETTY] Connected to veronika_jetty Postgres memory")
+    except Exception as e:
+        print(f"[JETTY] Postgres unavailable, using JSONL fallback: {e}")
+        _PG_POOL = None
+
+@app.on_event("shutdown")
+async def shutdown_db():
+    if _PG_POOL:
+        await _PG_POOL.close()
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
@@ -67,9 +102,73 @@ class Note(BaseModel):
     excerpt: str; text: str; title_tokens: List[str]; tokens: List[str]
 
 GRAPH_CACHE: Dict[str, Any] = {"nodes": [], "links": [], "notes": [], "built_at": 0}
-HISTORY: Dict[str, List[Dict[str, str]]] = {}
+HISTORY: Dict[str, List[Dict[str, str]]] = {}  # in-memory hot cache
 REQUEST_LOG: Dict[str, List[float]] = {}
-CHAT_LOG = (ROOT / "data" / "chat-history.jsonl").resolve()
+CHAT_LOG = (ROOT / "data" / "chat-history.jsonl").resolve()  # JSONL fallback
+
+# ── Postgres memory helpers (veronika_jetty schema) ─────────────────────────
+
+async def _pg_upsert_session(sid: str, role: str, content: str):
+    """Upsert session row and append message — fire and forget."""
+    if not _PG_POOL:
+        return
+    async with _PG_POOL.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO veronika_jetty.chat_sessions
+                (session_id, preview, message_count, last_seen)
+            VALUES ($1, $2, 1, now())
+            ON CONFLICT (session_id) DO UPDATE
+              SET message_count = veronika_jetty.chat_sessions.message_count + 1,
+                  last_seen = now(),
+                  preview = CASE WHEN $3 = 'user'
+                    THEN LEFT($2, 120)
+                    ELSE veronika_jetty.chat_sessions.preview END
+        """, sid, content[:120], role)
+        await conn.execute("""
+            INSERT INTO veronika_jetty.chat_messages (session_id, role, content)
+            VALUES ($1, $2, $3)
+        """, sid, role, content)
+
+async def _pg_load_history(sid: str, limit: int = 12) -> List[Dict[str, str]]:
+    if not _PG_POOL:
+        return []
+    async with _PG_POOL.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT role, content FROM veronika_jetty.chat_messages
+            WHERE session_id = $1
+            ORDER BY ts DESC LIMIT $2
+        """, sid, limit)
+    return [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
+
+async def _pg_list_sessions(limit: int = 40) -> List[Dict[str, Any]]:
+    if not _PG_POOL:
+        return []
+    async with _PG_POOL.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT session_id, title, preview, message_count,
+                   first_seen, last_seen
+            FROM veronika_jetty.chat_sessions
+            ORDER BY last_seen DESC LIMIT $1
+        """, limit)
+    return [
+        {
+            "session_id": r["session_id"],
+            "title": r["title"] or "Previous chat",
+            "preview": r["preview"] or "",
+            "message_count": r["message_count"],
+            "first_seen": str(r["first_seen"]),
+            "last_seen": str(r["last_seen"]),
+        }
+        for r in rows
+    ]
+
+async def _pg_clear_sessions():
+    """Wipe all Veronika chat history from Postgres."""
+    if not _PG_POOL:
+        return
+    async with _PG_POOL.acquire() as conn:
+        await conn.execute("DELETE FROM veronika_jetty.chat_messages")
+        await conn.execute("DELETE FROM veronika_jetty.chat_sessions")
 
 STOPWORDS = set("a an and are as at be by for from has have i in is it its me my of on or our that the this to we with you your into about what when where who why how do does did can could should would tell give make build".split())
 
@@ -219,9 +318,8 @@ async def call_llm(message: str, contexts: List[Note], history: List[Dict[str, s
         f"SOURCE [{n.id}] — {n.label} ({n.path})\n{n.text[:1800]}" for n in contexts
     ]) or "No matching notes found. Answer from general knowledge and recommend adding a note."
     
-    recent = history[-MAX_HISTORY:]
+    recent = history[-(MAX_HISTORY * 2):]  # pairs of user/assistant
     provider = (provider_override or MODEL_PROVIDER).lower()
-    
     sys = system_prompt(context)
 
     async def anthropic_answer() -> str:
@@ -241,13 +339,15 @@ async def call_llm(message: str, contexts: List[Note], history: List[Dict[str, s
             raise HTTPException(502, f"Anthropic error: {r.text[:400]}")
         return "".join([b.get("text","") for b in r.json().get("content",[]) if b.get("type")=="text"]).strip()
 
-    async def openai_compatible(base_url: str, api_key: str, model: str, max_tokens: int = 600) -> str:
+    async def openai_compatible(base_url: str, api_key: str, model: str, max_tokens: int = 400) -> str:
+        # Shorter timeout for fast models (Groq ~200 tok/s rarely needs >10s)
+        _timeout = 15 if "groq" in base_url else 40
         msgs = [{"role": "system", "content": sys}] + recent + [{"role": "user", "content": message}]
-        async with httpx.AsyncClient(timeout=45) as client:
+        async with httpx.AsyncClient(timeout=_timeout) as client:
             r = await client.post(
                 f"{base_url.rstrip('/')}/chat/completions",
                 headers={"authorization": f"Bearer {api_key}", "content-type": "application/json"},
-                json={"model": model, "messages": msgs, "temperature": 0.4, "max_tokens": max_tokens},
+                json={"model": model, "messages": msgs, "temperature": 0.35, "max_tokens": max_tokens},
             )
         if r.status_code >= 400:
             raise HTTPException(502, f"LLM error: {r.text[:400]}")
@@ -361,19 +461,30 @@ def graph():
     return {"nodes": g["nodes"], "links": g["links"], "app": APP_NAME, "region": APP_REGION, "count": len(g["nodes"])}
 
 @app.post("/api/chat")
-async def chat(req: ChatRequest, request: Request):
+async def chat(req: ChatRequest, request: Request, background_tasks: BackgroundTasks):
     rate_limit(request)
     sid = safe_session_id(req.session_id)
     g = build_graph()
     scored = score_notes(req.message, g["notes"])
     contexts = [n for _, n in scored]
-    # Per-request model override from frontend model switcher
+    # Load history from Postgres if available, else fall back to in-memory hot cache
+    if _PG_POOL:
+        pg_history = await _pg_load_history(sid, limit=MAX_HISTORY * 2)
+        history_for_llm = pg_history
+    else:
+        history_for_llm = HISTORY.get(sid, [])
     provider = req.model_provider.strip().lower() if req.model_provider else ""
-    answer = await call_llm(req.message, contexts, HISTORY.get(sid, []), provider_override=provider)
+    answer = await call_llm(req.message, contexts, history_for_llm, provider_override=provider)
+    # Update hot in-memory cache
     HISTORY.setdefault(sid, []).extend([{"role": "user", "content": req.message}, {"role": "assistant", "content": answer}])
-    HISTORY[sid] = HISTORY[sid][-MAX_HISTORY * 2:]
-    append_chat_event(sid, "user", req.message)
-    append_chat_event(sid, "assistant", answer)
+    HISTORY[sid] = HISTORY[sid][-(MAX_HISTORY * 2):]
+    # Persist to Postgres in background (non-blocking)
+    background_tasks.add_task(_pg_upsert_session, sid, "user", req.message)
+    background_tasks.add_task(_pg_upsert_session, sid, "assistant", answer)
+    # JSONL fallback
+    if not _PG_POOL:
+        append_chat_event(sid, "user", req.message)
+        append_chat_event(sid, "assistant", answer)
     return {"answer": answer, "nodes": [n.id for n in contexts], "scores": [{"id": n.id, "score": s} for s, n in scored]}
 
 @app.post("/api/remember")
@@ -410,14 +521,31 @@ def voices():
     return {"note": "Voice list comes from the browser's Web Speech API. ATLAS supports any voice your system has installed."}
 
 @app.get("/api/history")
-def history(session_id: str = "default"):
+async def history(session_id: str = "default"):
     sid = safe_session_id(session_id)
-    turns = load_chat_events(sid)
-    return {"session_id": sid, "turns": turns[-MAX_HISTORY * 2:]}
+    if _PG_POOL:
+        turns = await _pg_load_history(sid, limit=MAX_HISTORY * 2)
+    else:
+        turns = load_chat_events(sid)
+    return {"session_id": sid, "turns": turns}
 
 @app.get("/api/sessions")
-def sessions():
+async def sessions():
+    if _PG_POOL:
+        return {"sessions": await _pg_list_sessions()}
     return {"sessions": list_chat_sessions()}
+
+@app.delete("/api/sessions/clear")
+async def clear_all_sessions():
+    """Wipe all Veronika chat history. Requires intentional DELETE call."""
+    global HISTORY
+    HISTORY = {}
+    if _PG_POOL:
+        await _pg_clear_sessions()
+    # Also clear JSONL fallback file
+    if CHAT_LOG.exists():
+        CHAT_LOG.unlink()
+    return {"ok": True, "message": "All Veronika chat sessions cleared."}
 
 class NoteCreate(BaseModel):
     title: str
