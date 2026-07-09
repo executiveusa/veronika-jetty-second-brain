@@ -16,6 +16,10 @@
 <div id="galaxy-canvas" aria-hidden="true"></div>
 
 <header id="nav" role="banner">
+  <button id="toggle-sessions-btn" class="nav-icon-btn" aria-label="Toggle chat history" title="Toggle chat history">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+  </button>
+
   <a id="brand-mark" href="/" aria-label="Return to Jetty home">
     <div class="jetty-orb" id="orb" aria-hidden="true">
       <div class="orb-core"></div>
@@ -48,23 +52,30 @@
       <span class="status-indicator" id="status-dot"></span>
       <span id="status-text">ready</span>
     </div>
+    <button id="toggle-knowledge-btn" class="nav-icon-btn" aria-label="Toggle knowledge vault" title="Toggle knowledge vault">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+    </button>
   </div>
 </header>
 
-<aside id="knowledge-panel" role="complementary" aria-label="Knowledge vault">
+<aside id="sessions-sidebar" class="sidebar-hidden" role="complementary" aria-label="Chat threads">
+  <div class="sidebar-header">
+    <span class="panel-eyebrow">Previous chats</span>
+    <div class="sidebar-actions">
+      <button type="button" id="new-chat-btn" title="Start a new chat session">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="vertical-align: middle; margin-right: 4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New
+      </button>
+      <button type="button" id="clear-history-btn" title="Clear view">Clear</button>
+    </div>
+  </div>
+  <div id="history-list" class="history-list-box"></div>
+</aside>
+
+<aside id="knowledge-panel" class="panel-hidden" role="complementary" aria-label="Knowledge vault">
   <div class="panel-eyebrow">Your knowledge vault</div>
   <h1 id="panel-headline">Your thinking, coiled.</h1>
   <p class="panel-body" id="panel-subtext">Each star is a note. Each connection is a relationship Jetty found between your ideas.</p>
   <div id="source-view" aria-live="polite"></div>
-  <div id="history-view" aria-live="polite">
-    <div class="history-header">
-      <span class="panel-eyebrow">Previous chats</span>
-      <button type="button" id="new-chat-btn">New chat</button>
-      <button type="button" id="clear-history-btn">Clear</button>
-    </div>
-    <div id="history-list"></div>
-    <div id="history-thread"></div>
-  </div>
   <div id="quick-questions">
     <p class="panel-eyebrow" style="margin-top:20px">Ask Jetty</p>
     <button class="quick-q" onclick="ask('How do I export my data from ChatGPT?')">Export ChatGPT history</button>
@@ -74,23 +85,30 @@
   </div>
 </aside>
 
-<section id="chat-dock" role="main" aria-label="Chat with Jetty">
-  <button id="mic-btn" class="icon-btn" title="Speak to Jetty" aria-label="Start voice input">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-  </button>
-
-  <div class="input-column">
-    <input id="query-input" type="text"
-      placeholder="Ask anything, or say: remember that..."
-      autocomplete="off"
-      aria-label="Message Jetty">
-    <div id="answer-display" aria-live="polite" aria-atomic="true"></div>
+<main id="chat-container">
+  <div id="chat-conversation" role="log" aria-live="polite" aria-label="Conversation history">
+    <!-- Message bubbles will be dynamically rendered here -->
   </div>
 
-  <button id="send-btn" class="send-btn" aria-label="Send message">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-  </button>
-</section>
+  <section id="chat-dock" role="main" aria-label="Chat with Jetty">
+    <button id="mic-btn" class="icon-btn" title="Speak to Jetty" aria-label="Start voice input">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+    </button>
+
+    <div class="input-column">
+      <textarea id="query-input"
+        placeholder="Ask anything, or say: remember that..."
+        autocomplete="off"
+        rows="1"
+        aria-label="Message Jetty"></textarea>
+      <div id="answer-display" aria-live="polite" aria-atomic="true"></div>
+    </div>
+
+    <button id="send-btn" class="send-btn" aria-label="Send message">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </section>
+</main>
 
 <div id="toast-msg" role="alert" aria-live="assertive"></div>
 <footer id="app-footer" aria-label="Beta notice">Beta system. We appreciate your feedback.</footer>

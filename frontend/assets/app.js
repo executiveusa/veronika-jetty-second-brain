@@ -92,8 +92,18 @@ function toast(msg, ms = 2600) {
   setTimeout(() => t.classList.remove('visible'), ms);
 }
 
-function saveHistory() {
-  localStorage.setItem('jetty_selected_session', STATE.threadSessionId);
+function formatMessageContent(text) {
+  if (!text) return '';
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*([\s\S]*?)\*/g, '<em>$1</em>');
+  html = html.replace(/\n/g, '<br>');
+  return html;
 }
 
 function renderHistory() {
@@ -104,38 +114,54 @@ function renderHistory() {
     list.innerHTML = '<div class="history-item" style="cursor:default">No previous chats yet.<span class="history-meta">Your saved threads will appear here.</span></div>';
     return;
   }
-  list.innerHTML = items.map(item => `
-    <button type="button" class="history-item" data-history-id="${item.id}">
-      ${item.preview || item.title || 'Previous chat'}
-      <span class="history-meta">${item.message_count || 0} messages · ${item.last_seen || ''}</span>
-    </button>
-  `).join('');
+  list.innerHTML = items.map(item => {
+    const isActive = item.session_id === STATE.threadSessionId;
+    return `
+      <button type="button" class="history-item ${isActive ? 'active' : ''}" data-history-id="${item.session_id}">
+        ${item.preview || item.title || 'Previous chat'}
+        <span class="history-meta">${item.message_count || 0} messages · ${item.last_seen || ''}</span>
+      </button>
+    `;
+  }).join('');
   list.querySelectorAll('[data-history-id]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const hit = STATE.sessions.find(entry => entry.id === btn.dataset.historyId);
-      if (!hit) return;
-      STATE.session = hit.session_id;
-      STATE.threadSessionId = hit.session_id;
-      sessionStorage.setItem('jetty_session', hit.session_id);
-      localStorage.setItem('jetty_selected_session', hit.session_id);
-      loadThread(hit.session_id);
+      const sid = btn.dataset.historyId;
+      STATE.session = sid;
+      STATE.threadSessionId = sid;
+      sessionStorage.setItem('jetty_session', sid);
+      localStorage.setItem('jetty_selected_session', sid);
+      loadThread(sid);
+      renderHistory();
     });
   });
 }
 
-function renderThread() {
-  const thread = $('history-thread');
-  if (!thread) return;
+function renderConversation() {
+  const conv = $('chat-conversation');
+  if (!conv) return;
   if (!STATE.thread.length) {
-    thread.innerHTML = '<div class="history-thread-item">Open a previous chat to see the messages here.</div>';
+    conv.innerHTML = `
+      <div class="chat-welcome">
+        <div class="welcome-orb"></div>
+        <h2>I am JETTY.</h2>
+        <p>Your thinking, coiled in a 3D knowledge galaxy. Ask me about your notes, or say "remember that..." to build your second brain.</p>
+      </div>
+    `;
     return;
   }
-  thread.innerHTML = STATE.thread.map(item => `
-    <div class="history-thread-item">
-      <strong>${item.role === 'assistant' ? 'Jetty' : 'You'}</strong>
-      ${item.content}
-    </div>
-  `).join('');
+  conv.innerHTML = STATE.thread.map(item => {
+    const isAssistant = item.role === 'assistant';
+    const contentHtml = formatMessageContent(item.content);
+    return `
+      <div class="message-bubble-wrapper ${isAssistant ? 'assistant-msg' : 'user-msg'}">
+        <div class="message-sender">${isAssistant ? 'JETTY' : 'YOU'}</div>
+        <div class="message-bubble">
+          ${item.thinking ? '<div class="thinking-spinner"><span></span><span></span><span></span></div>' : contentHtml}
+        </div>
+      </div>
+    `;
+  }).join('');
+  conv.scrollTop = conv.scrollHeight;
 }
 
 async function loadSessions() {
@@ -144,11 +170,11 @@ async function loadSessions() {
     if (!r.ok) return renderHistory();
     const j = await r.json();
     const sessions = Array.isArray(j.sessions) ? j.sessions : [];
-    STATE.sessions = sessions.map((item, idx) => ({ ...item, id: `${item.session_id}:${idx}` }));
+    STATE.sessions = sessions;
     renderHistory();
     const selected = STATE.sessions.find(x => x.session_id === STATE.threadSessionId) || STATE.sessions[0];
     if (selected) await loadThread(selected.session_id);
-    else renderThread();
+    else renderConversation();
   } catch {
     renderHistory();
   }
@@ -163,14 +189,10 @@ async function loadThread(sessionId) {
     STATE.threadSessionId = j.session_id || sessionId;
     sessionStorage.setItem('jetty_session', STATE.threadSessionId);
     localStorage.setItem('jetty_selected_session', STATE.threadSessionId);
-    renderThread();
-    const lastUser = [...STATE.thread].reverse().find(item => item.role === 'user');
-    const lastAssistant = [...STATE.thread].reverse().find(item => item.role === 'assistant');
-    if (lastUser) $('query-input').value = lastUser.content;
-    if (lastAssistant) $('answer-display').textContent = lastAssistant.content;
+    renderConversation();
   } catch {
     STATE.thread = [];
-    renderThread();
+    renderConversation();
   }
 }
 
@@ -182,10 +204,6 @@ function identityReply(text) {
     /\b(who|what team)\b.*\b(built|made|created|behind)\b/.test(normalized);
   if (!asksWhoBuilt) return null;
   return 'The team at The Pauli Effect built me, a faceless group of volunteers building AI-powered solutions to promote human well being and inclusion.';
-}
-
-function rememberChat(user, assistant, kind = 'chat') {
-  addHistoryEntry(user, assistant, kind);
 }
 
 // ── VOICE SETUP ───────────────────────────────────────────────────
@@ -304,6 +322,7 @@ function focusNode(id) {
   const n = STATE.data.nodes.find(x => x.id === id);
   if (!n) return;
   showSource(n);
+  $('knowledge-panel').classList.remove('panel-hidden');
   const x = Number.isFinite(n.x) ? n.x : 0;
   const y = Number.isFinite(n.y) ? n.y : 0;
   STATE.graph.centerAt(x, y, 900);
@@ -319,7 +338,6 @@ function lightCluster(ids) {
   STATE.graph
     .nodeColor(n => set.has(n.id) ? '#d4a030' : nodeColor(n.group))
     .nodeRelSize(n => set.has(n.id) ? 9 : 4);
-  // Prompt 4 spec: fly to top node when < 4 sources; light whole cluster when 4+
   if (ids.length < 4 && ids[0] != null) focusNode(ids[0]);
 }
 
@@ -351,7 +369,6 @@ async function loadGraph() {
     STATE.data = await r.json();
     const count = STATE.data.count || STATE.data.nodes.length;
 
-    // Boot greeting — spoken after first interaction unlocks audio
     const hour = new Date().getHours();
     const salutation = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
     const bootMsg = `${salutation}. ${count} note${count !== 1 ? 's' : ''} indexed — all present and accounted for.`;
@@ -363,7 +380,6 @@ async function loadGraph() {
     setStatus('ready');
     loadSessions();
 
-    // Speak boot greeting on first user interaction (browser audio gate)
     const greet = () => { speak(bootMsg, true); document.removeEventListener('click', greet); };
     document.addEventListener('click', greet);
 
@@ -380,18 +396,26 @@ async function ask(text) {
   if (!text) return;
   STATE.unlocked = true;
 
+  const inp = $('query-input');
+  inp.value = '';
+  inp.style.height = 'auto';
+  $('answer-display').textContent = '';
+
   const identity = identityReply(text);
   if (identity) {
-    $('query-input').value = '';
-    $('answer-display').textContent = identity;
+    STATE.thread.push({ role: 'user', content: text });
+    STATE.thread.push({ role: 'assistant', content: identity });
+    renderConversation();
     speak(identity);
     await loadSessions();
     setStatus('ready');
     return;
   }
 
-  $('query-input').value = '';
-  $('answer-display').textContent = '';
+  STATE.thread.push({ role: 'user', content: text });
+  STATE.thread.push({ role: 'assistant', content: '', thinking: true });
+  renderConversation();
+
   setStatus('thinking…', 'thinking');
   $('send-btn').disabled = true;
   $('orb').querySelector('.orb-ring').classList.add('listening');
@@ -409,7 +433,6 @@ async function ask(text) {
       if (!r.ok) throw new Error(j.detail || 'Save failed');
       STATE.data = j.graph;
       STATE.graph.graphData(STATE.data);
-      $('answer-display').textContent = j.answer;
       speak(j.answer);
       await loadSessions();
       setTimeout(() => focusNode(j.node.id), 400);
@@ -429,14 +452,17 @@ async function ask(text) {
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || 'Query failed');
-    $('answer-display').textContent = j.answer;
     speak(j.answer);
     await loadSessions();
     if (j.nodes?.length) lightCluster(j.nodes);
     setStatus('ready');
 
   } catch(e) {
-    $('answer-display').textContent = e.message;
+    if (STATE.thread.length && STATE.thread[STATE.thread.length - 1].thinking) {
+      STATE.thread.pop();
+    }
+    STATE.thread.push({ role: 'assistant', content: `Error: ${e.message}` });
+    renderConversation();
     setStatus('error', 'error');
   } finally {
     $('send-btn').disabled = false;
@@ -485,22 +511,37 @@ $('new-chat-btn').onclick = () => {
   sessionStorage.setItem('jetty_session', STATE.session);
   localStorage.setItem('jetty_selected_session', STATE.session);
   STATE.thread = [];
-  renderThread();
+  renderConversation();
   $('query-input').value = '';
+  $('query-input').style.height = 'auto';
   $('answer-display').textContent = '';
   toast('New chat ready');
+  renderHistory();
 };
 $('clear-history-btn').onclick = () => {
   localStorage.removeItem('jetty_selected_session');
   STATE.sessions = [];
   STATE.thread = [];
   renderHistory();
-  renderThread();
+  renderConversation();
   toast('History cleared from view');
 };
 $('query-input').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); }
 });
+$('query-input').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = (this.scrollHeight) + 'px';
+});
+
+// Sidebar toggle listeners
+$('toggle-sessions-btn').onclick = () => {
+  $('sessions-sidebar').classList.toggle('sidebar-hidden');
+};
+$('toggle-knowledge-btn').onclick = () => {
+  $('knowledge-panel').classList.toggle('panel-hidden');
+};
+
 document.body.addEventListener('click', () => { STATE.unlocked = true; }, { once: true });
 
 window.addEventListener('resize', syncViewportMode, { passive: true });
