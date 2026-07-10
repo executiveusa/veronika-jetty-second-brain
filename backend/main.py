@@ -516,9 +516,27 @@ def remember(req: RememberRequest, request: Request):
     append_chat_event(req.session_id, "assistant", msg)
     return {"ok": True, "answer": msg, "node": new_node, "graph": {"nodes": g["nodes"], "links": g["links"]}}
 
+class TTSRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=4000)
+    voice_id: str = Field(..., min_length=1, max_length=120)
+
 @app.get("/api/voices")
 def voices():
     return {"note": "Voice list comes from the browser's Web Speech API. ATLAS supports any voice your system has installed."}
+
+@app.post("/api/tts")
+async def tts_proxy(req: TTSRequest):
+    async with httpx.AsyncClient(timeout=30) as client:
+        try:
+            # We assume jetty-assistant is resolvable inside the Docker network.
+            # If running outside docker (locally), this might fail, but it's meant for production.
+            r = await client.post("http://jetty-assistant:4719/tts", json={"text": req.text, "voice_id": req.voice_id})
+            if r.status_code >= 400:
+                raise HTTPException(r.status_code, f"TTS Error: {r.text[:200]}")
+            from fastapi.responses import Response
+            return Response(content=r.content, media_type="audio/mpeg")
+        except httpx.RequestError as e:
+            raise HTTPException(502, f"Failed to connect to Jetty voice assistant sidecar: {e}")
 
 @app.get("/api/history")
 async def history(session_id: str = "default"):

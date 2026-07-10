@@ -47,6 +47,19 @@ services:
       timeout: 10s
       retries: 3
 
+  jetty-assistant:
+    build:
+      context: ./brain-jetty
+      dockerfile: Dockerfile
+    container_name: jetty-assistant
+    ports:
+      - "4719:4719"
+    environment:
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
+    restart: unless-stopped
+    networks:
+      - default
+
 networks:
   default: {}
   supabase_external:

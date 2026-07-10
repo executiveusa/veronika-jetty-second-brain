@@ -210,7 +210,6 @@ function identityReply(text) {
 function loadVoices() {
   const sel = $('voice-select');
   const all = speechSynthesis.getVoices();
-  if (!all.length) return;
 
   const preferred = ['Samantha', 'Victoria', 'Karen', 'Zoe',
                      'Google US English', 'Microsoft Zira'];
@@ -225,6 +224,22 @@ function loadVoices() {
   });
 
   sel.innerHTML = '';
+  
+  const ELEVENLABS_VOICES = [
+    { id: "JBFqnCBsd6RMkjVDRZzb", name: "ElevenLabs: George" },
+    { id: "cgSgspJ2msm6clMCkdW9", name: "ElevenLabs: Jessica" },
+    { id: "EXAVITQu4vr4xnSDxMaL", name: "ElevenLabs: Bella" },
+    { id: "21m00Tcm4TlvDq8ikWAM", name: "ElevenLabs: Rachel" }
+  ];
+  
+  ELEVENLABS_VOICES.forEach(v => {
+    const o = document.createElement('option');
+    o.value = 'elevenlabs:' + v.id;
+    o.textContent = v.name;
+    if (o.value === STATE.voice) o.selected = true;
+    sel.appendChild(o);
+  });
+
   ranked.forEach(v => {
     const o = document.createElement('option');
     o.value = v.name;
@@ -232,7 +247,7 @@ function loadVoices() {
     if (v.name === STATE.voice) o.selected = true;
     sel.appendChild(o);
   });
-  if (!STATE.voice) STATE.voice = ranked[0]?.name;
+  if (!STATE.voice) STATE.voice = 'elevenlabs:' + ELEVENLABS_VOICES[0].id;
 }
 
 $('voice-select').addEventListener('change', function () {
@@ -257,10 +272,41 @@ $('model-select').addEventListener('change', function () {
   toast(`Brain: ${names[STATE.model]}`);
 });
 
-function speak(text, force = false) {
-  if (!('speechSynthesis' in window)) return;
+let currentAudio = null;
+
+async function speak(text, force = false) {
   if (!STATE.unlocked && !force) return;
-  speechSynthesis.cancel();
+  
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  
+  if (STATE.voice && STATE.voice.startsWith('elevenlabs:')) {
+    const voiceId = STATE.voice.split(':')[1];
+    try {
+      const r = await fetch(apiUrl('/api/tts'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice_id: voiceId })
+      });
+      if (!r.ok) throw new Error('TTS failed');
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      currentAudio = new Audio(url);
+      currentAudio.play();
+    } catch (e) {
+      console.error('ElevenLabs TTS error:', e);
+      fallbackSpeak(text);
+    }
+  } else {
+    fallbackSpeak(text);
+  }
+}
+
+function fallbackSpeak(text) {
+  if (!('speechSynthesis' in window)) return;
   const u = new SpeechSynthesisUtterance(text);
   const voices = speechSynthesis.getVoices();
   u.voice = voices.find(v => v.name === STATE.voice)
