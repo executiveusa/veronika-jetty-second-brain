@@ -631,17 +631,19 @@ html[data-viewport="tablet"] #app-footer {
     transform: none;
     width: min(calc(100vw - 24px), 720px);
     margin: 0 auto 12px;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: auto 1fr auto;
     grid-template-areas:
-      "input input"
-      "mic send";
+      "dock input send"
+      "mic mic mic";
     gap: 8px;
     padding: 10px;
     border-radius: 22px;
   }
+  .dock-buttons { grid-area: dock; flex-direction: column; gap: 4px; }
+  .dock-btn { width: 30px; height: 30px; font-size: 13px; }
   .input-column { grid-area: input; }
-  #mic-btn { grid-area: mic; width: 100%; border-radius: 18px; }
-  #send-btn { grid-area: send; width: 100%; border-radius: 18px; }
+  #mic-btn { grid-area: mic; width: 100%; border-radius: 18px; height: 40px; }
+  #send-btn { grid-area: send; width: auto; border-radius: 18px; }
   #query-input { font-size: 16px; padding-top: 6px; }
   #answer-display { font-size: 13px; }
   #app-footer {

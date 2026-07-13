@@ -19,13 +19,34 @@
   }
 
   function coverRect(iw, ih, w, h) {
+    // Portrait phones: don't crop 70%+ of a landscape image.
+    // Use "contain" (full image visible) on tall screens so the Spiral Jetty
+    // and water stay in frame. Bars are filled by the basalt bg + vignette.
+    const screenAspect = w / h;
+    const imgAspect = iw / ih;
+    const portrait = screenAspect < 0.85;
+    if (portrait) {
+      // Contain: scale to fit, center vertically biased slightly toward water
+      const s = Math.min(w / iw, h / ih);
+      const sw = iw * s, sh = ih * s;
+      const sx = 0;
+      const sy = Math.max(0, (h - sh) / 2); // centered, bars top+bottom
+      // For the source-image crop rect (used by drawWaterOnly), map back:
+      return { sx: 0, sy: 0, sw: iw, sh: ih };
+    }
+    // Landscape/tablet/desktop: classic cover, centered
     const s = Math.max(w / iw, h / ih);
     const sw = w / s, sh = h / s;
     return { sx: (iw - sw) / 2, sy: (ih - sh) / 2, sw, sh };
   }
 
   function resize() {
-    state.w = innerWidth; state.h = innerHeight; state.dpr = Math.min(devicePixelRatio || 1, 2);
+    // Track the HERO element size (which may exceed viewport when content wraps on mobile)
+    // rather than innerHeight, so the canvas paints the whole hero, not just one screen.
+    const heroRect = hero.getBoundingClientRect();
+    state.w = innerWidth;
+    state.h = Math.max(innerHeight, Math.ceil(heroRect.height || innerHeight));
+    state.dpr = Math.min(devicePixelRatio || 1, 2);
     canvas.width = Math.floor(state.w * state.dpr);
     canvas.height = Math.floor(state.h * state.dpr);
     canvas.style.width = state.w + 'px'; canvas.style.height = state.h + 'px';
