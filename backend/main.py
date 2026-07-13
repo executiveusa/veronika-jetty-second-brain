@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -39,6 +39,9 @@ GROQ_MODEL       = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 DEEPSEEK_MODEL   = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 MISTRAL_MODEL    = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
 HERMES_MODEL     = os.getenv("HERMES_MODEL", "openai/gpt-5.5")
+ELEVENLABS_API_KEY  = os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVEN_LABS_API") or ""
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "cgSgspJ2msm6clMCkdW9")  # Jessica default
+ELEVENLABS_MODEL    = os.getenv("ELEVENLABS_MODEL", "eleven_turbo_v2_5")
 SYNTHIA_GATEWAY_BASE_URL = os.getenv("SYNTHIA_GATEWAY_BASE_URL", "").rstrip("/")
 SYNTHIA_GATEWAY_API_KEY  = os.getenv("SYNTHIA_GATEWAY_API_KEY", "")
 SYNTHIA_GATEWAY_MODEL    = os.getenv("SYNTHIA_GATEWAY_MODEL", OPENAI_MODEL)
@@ -432,6 +435,85 @@ async def call_llm(message: str, contexts: List[Note], history: List[Dict[str, s
             return await anthropic_answer()
         raise
 
+# ── Streaming LLM (for /api/chat/stream) ──────────────────────────────────────
+async def call_llm_stream(message: str, contexts: List[Note], history: List[Dict[str, str]], provider_override: str = ""):
+    """Yields text deltas as they arrive from the provider. Falls back gracefully."""
+    context = "\n\n".join([
+        f"SOURCE [{n.id}] — {n.label} ({n.path})\n{n.text[:1800]}" for n in contexts
+    ]) or "No matching notes found."
+    recent = history[-(MAX_HISTORY * 2):]
+    provider = (provider_override or MODEL_PROVIDER).lower()
+    sys = system_prompt(context)
+
+    async def stream_openai_compat(base_url: str, api_key: str, model: str):
+        msgs = [{"role": "system", "content": sys}] + recent + [{"role": "user", "content": message}]
+        async with httpx.AsyncClient(timeout=30) as client:
+            async with client.stream("POST", f"{base_url.rstrip('/')}/chat/completions",
+                headers={"authorization": f"Bearer {api_key}", "content-type": "application/json"},
+                json={"model": model, "messages": msgs, "temperature": 0.35, "max_tokens": 500, "stream": True}) as r:
+                if r.status_code >= 400:
+                    return
+                async for line in r.aiter_lines():
+                    if line.startswith("data: ") and line != "data: [DONE]":
+                        try:
+                            chunk = json.loads(line[6:])
+                            delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                            if delta:
+                                yield delta
+                        except (json.JSONDecodeError, IndexError):
+                            continue
+
+    async def stream_anthropic():
+        key = os.getenv("ANTHROPIC_API_KEY")
+        if not key:
+            return
+        payload = {"model": ANTHROPIC_MODEL, "max_tokens": 600, "stream": True,
+                   "system": sys,
+                   "messages": recent + [{"role": "user", "content": message}]}
+        async with httpx.AsyncClient(timeout=45) as client:
+            async with client.stream("POST", "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json=payload) as r:
+                if r.status_code >= 400:
+                    return
+                async for line in r.aiter_lines():
+                    if line.startswith("data: "):
+                        try:
+                            evt = json.loads(line[6:])
+                            if evt.get("type") == "content_block_delta":
+                                delta = evt.get("delta", {}).get("text", "")
+                                if delta:
+                                    yield delta
+                        except json.JSONDecodeError:
+                            continue
+
+    if provider == "anthropic":
+        async for d in stream_anthropic(): yield d
+    elif provider == "groq":
+        key = os.getenv("GROQ_API_KEY")
+        if key:
+            async for d in stream_openai_compat("https://api.groq.com/openai/v1", key, GROQ_MODEL): yield d
+    elif provider == "openai":
+        key = os.getenv("OPENAI_API_KEY")
+        if key:
+            async for d in stream_openai_compat("https://api.openai.com/v1", key, OPENAI_MODEL): yield d
+    elif provider == "deepseek":
+        key = os.getenv("DEEPSEEK_API_KEY")
+        if key:
+            async for d in stream_openai_compat("https://api.deepseek.com", key, DEEPSEEK_MODEL): yield d
+    elif provider == "hermes":
+        key = os.getenv("HERMES_AGENT_API")
+        base = os.getenv("HERMES_BASE_URL", "https://inference-api.nousresearch.com/v1")
+        if key:
+            async for d in stream_openai_compat(base, key, HERMES_MODEL): yield d
+    elif provider in ("synthia", "mistral"):
+        # Fallback to non-streaming for synthia/mistral, yield the whole answer
+        answer = await call_llm(message, contexts, history, provider_override=provider)
+        yield answer
+    else:
+        answer = await call_llm(message, contexts, history, provider_override=provider)
+        yield answer
+
 def rate_limit(request: Request):
     ip = request.client.host if request.client else "unknown"
     now = time.time()
@@ -522,21 +604,202 @@ class TTSRequest(BaseModel):
 
 @app.get("/api/voices")
 def voices():
-    return {"note": "Voice list comes from the browser's Web Speech API. ATLAS supports any voice your system has installed."}
+    return {"note": "Voice list comes from the browser's Web Speech API. JETTY supports any voice your system has installed, plus premium ElevenLabs voices."}
 
 @app.post("/api/tts")
 async def tts_proxy(req: TTSRequest):
-    async with httpx.AsyncClient(timeout=30) as client:
+    """ElevenLabs TTS — silent fallback (empty body) on any failure so the frontend's
+    browser speechSynthesis takes over without surfacing an error."""
+    if not ELEVENLABS_API_KEY:
+        return Response(content=b"", media_type="audio/mpeg")  # silent → browser fallback
+    try:
+        voice_id = req.voice_id or ELEVENLABS_VOICE_ID
+        # Strip the elevenlabs: prefix if the frontend passed it
+        if voice_id.startswith("elevenlabs:"):
+            voice_id = voice_id.split(":", 1)[1]
+        # Normalize speakable text: strip markdown/URLs
+        speakable = re.sub(r"https?://\S+", "link", req.text)
+        speakable = re.sub(r"[#>*_~`]", "", speakable)
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                headers={"xi-api-key": ELEVENLABS_API_KEY, "content-type": "application/json", "accept": "audio/mpeg"},
+                json={"text": speakable[:2500], "model_id": ELEVENLABS_MODEL,
+                      "voice_settings": {"stability": 0.4, "similarity_boost": 0.85}},
+            )
+        if r.status_code >= 400:
+            return Response(content=b"", media_type="audio/mpeg")  # silent
+        return Response(content=r.content, media_type="audio/mpeg")
+    except Exception:
+        return Response(content=b"", media_type="audio/mpeg")  # silent → browser fallback
+
+@app.get("/api/voice")
+async def voice_wardrobe():
+    """List available ElevenLabs voices for the dropdown. Silent empty list on failure."""
+    if not ELEVENLABS_API_KEY:
+        return {"voices": [], "configured": False}
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get("https://api.elevenlabs.io/v1/voices",
+                headers={"xi-api-key": ELEVENLABS_API_KEY})
+        if r.status_code >= 400:
+            return {"voices": [], "configured": False}
+        data = r.json()
+        voices = [{"id": v.get("voice_id"), "name": v.get("name"), "category": v.get("category", "")}
+                  for v in data.get("voices", [])][:30]
+        return {"voices": voices, "configured": True, "active": ELEVENLABS_VOICE_ID}
+    except Exception:
+        return {"voices": [], "configured": False}
+
+# ── Live duplex (graceful: returns configured:false if no agent_id/tunnel) ────
+DUPLEX_CONFIG_PATH = ROOT / "jetty-duplex.json"
+
+@app.get("/api/duplex")
+async def duplex_status():
+    cfg = {}
+    if DUPLEX_CONFIG_PATH.exists():
         try:
-            # We assume jetty-assistant is resolvable inside the Docker network.
-            # If running outside docker (locally), this might fail, but it's meant for production.
-            r = await client.post("http://jetty-assistant:4719/tts", json={"text": req.text, "voice_id": req.voice_id})
-            if r.status_code >= 400:
-                raise HTTPException(r.status_code, f"TTS Error: {r.text[:200]}")
-            from fastapi.responses import Response
-            return Response(content=r.content, media_type="audio/mpeg")
-        except httpx.RequestError as e:
-            raise HTTPException(502, f"Failed to connect to Jetty voice assistant sidecar: {e}")
+            cfg = json.loads(DUPLEX_CONFIG_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            cfg = {}
+    configured = bool(cfg.get("agent_id") and ELEVENLABS_API_KEY)
+    return {
+        "configured": configured,
+        "agent_id": cfg.get("agent_id", ""),
+        "providers": {"elevenlabs": bool(ELEVENLABS_API_KEY), "openai": bool(os.getenv("OPENAI_API_KEY"))},
+        "provider": cfg.get("provider", "auto"),
+        "preference": cfg.get("provider", "auto"),
+    }
+
+@app.get("/api/duplex_signed")
+async def duplex_signed():
+    """Returns an ElevenLabs Agents signed URL for live conversation. Fails silent."""
+    cfg = {}
+    if DUPLEX_CONFIG_PATH.exists():
+        try:
+            cfg = json.loads(DUPLEX_CONFIG_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            cfg = {}
+    agent_id = cfg.get("agent_id", "")
+    if not agent_id or not ELEVENLABS_API_KEY:
+        return {"configured": False}
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(
+                f"https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id={agent_id}",
+                headers={"xi-api-key": ELEVENLABS_API_KEY})
+        if r.status_code >= 400:
+            return {"configured": False}
+        return {"configured": True, "signed_url": r.json().get("signed_url", "")}
+    except Exception:
+        return {"configured": False}
+
+# ── Screen vision (/api/see) ──────────────────────────────────────────────────
+class SeeRequest(BaseModel):
+    image: str = Field(..., min_length=1)  # base64 jpeg
+    question: str = Field(..., min_length=1, max_length=1000)
+
+@app.post("/api/see")
+async def see_screen(req: SeeRequest):
+    """Vision: describe/answer about the shared screen. Silent fallback returns empty answer."""
+    key = os.getenv("ANTHROPIC_API_KEY")
+    if not key:
+        return {"answer": ""}  # silent
+    try:
+        # Ensure data URL prefix stripped for Anthropic
+        img_data = req.image
+        if img_data.startswith("data:"):
+            img_data = img_data.split(",", 1)[1]
+        payload = {
+            "model": ANTHROPIC_MODEL,
+            "max_tokens": 300,
+            "system": "You can SEE the user's screen. Answer in 1-3 short, dry, genuinely helpful sentences. You are JETTY, an AI second brain. Do not say 'as an AI'. Be direct.",
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": img_data}},
+                    {"type": "text", "text": req.question or "What am I looking at? Briefly."}
+                ]
+            }]
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post("https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json=payload)
+        if r.status_code >= 400:
+            return {"answer": ""}
+        return {"answer": "".join(b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text").strip()}
+    except Exception:
+        return {"answer": ""}  # silent
+
+# ── Morning briefing (/api/briefing) ──────────────────────────────────────────
+@app.post("/api/briefing")
+async def briefing_endpoint():
+    """Generate a 3-5 sentence morning briefing from recent captures + vault context."""
+    g = build_graph()
+    notes = g["notes"]
+    # Gather recent captures
+    captures_dir = NOTES_DIR / "captures"
+    recent_captures = []
+    if captures_dir.exists():
+        files = sorted(captures_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:5]
+        for p in files:
+            recent_captures.append(p.stem.replace("-", " "))
+    note_count = len(notes)
+    capture_list = "; ".join(recent_captures) if recent_captures else "none yet"
+    prompt = (
+        f"Give a 3-5 sentence morning briefing for the user. "
+        f"Vault has {note_count} notes. Recent captures: {capture_list}. "
+        f"Be warm but direct. One witty line is welcome. Don't say 'certainly' or 'as an AI'. "
+        f"End with one concrete next step they could take. Keep it under 80 words."
+    )
+    try:
+        answer = await call_llm(prompt, [], [], provider_override=MODEL_PROVIDER)
+        return {"answer": answer}
+    except Exception:
+        return {"answer": f"Good to see you. {note_count} notes indexed, all present and accounted for. Say \"remember that\" to add to your galaxy."}
+
+# ── Streaming chat endpoint ───────────────────────────────────────────────────
+@app.post("/api/chat/stream")
+async def chat_stream(req: ChatRequest, request: Request, background_tasks: BackgroundTasks):
+    """SSE streaming chat. Emits meta → delta(s) → done events."""
+    rate_limit(request)
+    sid = safe_session_id(req.session_id)
+    g = build_graph()
+    scored = score_notes(req.message, g["notes"])
+    contexts = [n for _, n in scored]
+    if _PG_POOL:
+        history_for_llm = await _pg_load_history(sid, limit=MAX_HISTORY * 2)
+    else:
+        history_for_llm = HISTORY.get(sid, [])
+    provider = req.model_provider.strip().lower() if req.model_provider else ""
+
+    node_ids = [n.id for n in contexts]
+
+    async def event_gen():
+        # meta event first
+        yield f"event: meta\ndata: {json.dumps({'provider': provider or MODEL_PROVIDER, 'nodes': node_ids, 'scores': [{'id': n.id, 'score': s} for s, n in scored]})}\n\n"
+        full_answer = []
+        try:
+            async for delta in call_llm_stream(req.message, contexts, history_for_llm, provider_override=provider):
+                full_answer.append(delta)
+                yield f"event: delta\ndata: {json.dumps({'text': delta})}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'message': str(e)[:200]})}\n\n"
+            return
+        answer = "".join(full_answer) or "(no response)"
+        # Persist (background)
+        HISTORY.setdefault(sid, []).extend([{"role": "user", "content": req.message}, {"role": "assistant", "content": answer}])
+        HISTORY[sid] = HISTORY[sid][-(MAX_HISTORY * 2):]
+        background_tasks.add_task(_pg_upsert_session, sid, "user", req.message)
+        background_tasks.add_task(_pg_upsert_session, sid, "assistant", answer)
+        if not _PG_POOL:
+            append_chat_event(sid, "user", req.message)
+            append_chat_event(sid, "assistant", answer)
+        yield f"event: done\ndata: {json.dumps({'answer': answer, 'nodes': node_ids})}\n\n"
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 @app.get("/api/history")
 async def history(session_id: str = "default"):

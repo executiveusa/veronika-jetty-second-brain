@@ -9,7 +9,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/app-style.css">
 <script src="/config.js"></script>
-<script src="https://unpkg.com/force-graph@1.48.0/dist/force-graph.min.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://esm.sh/three@0.160.0",
+    "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
+    "3d-force-graph": "https://esm.sh/3d-force-graph@1.73.4?external=three",
+    "three-spritetext": "https://esm.sh/three-spritetext@1.8.2?external=three"
+  }
+}
+</script>
 </head>
 <body>
 
@@ -95,9 +104,16 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
     </button>
 
+    <div class="dock-buttons" aria-label="Advanced voice controls">
+      <button id="j-wake" class="dock-btn" title="Hands-free — say &quot;Jetty…&quot;" aria-label="Hands-free wake word">👂</button>
+      <button id="j-live" class="dock-btn" title="Live conversation" aria-label="Live conversation">📡</button>
+      <button id="j-screen" class="dock-btn" title="Share your screen so Jetty can see it" aria-label="Share screen">🖥</button>
+      <button id="j-bell" class="dock-btn" title="Morning briefing" aria-label="Morning briefing">🔔</button>
+    </div>
+
     <div class="input-column">
       <textarea id="query-input"
-        placeholder="Ask anything, or say: remember that..."
+        placeholder="Ask · &quot;remember that…&quot; · &quot;good morning&quot; · &quot;switch to claude&quot;"
         autocomplete="off"
         rows="1"
         aria-label="Message Jetty"></textarea>
@@ -111,8 +127,49 @@
 </main>
 
 <div id="toast-msg" role="alert" aria-live="assertive"></div>
+
+<!-- Reactor HUD (Iron-Man-style orb, Spiral Jetty palette) -->
+<div id="j-state" aria-hidden="true"><span class="dot"></span><span id="j-state-txt">ONLINE</span></div>
+<div id="j-orb" aria-hidden="true">
+  <svg viewBox="0 0 200 200">
+    <defs>
+      <radialGradient id="hudCore" cx="50%" cy="45%" r="62%">
+        <stop offset="0%" stop-color="#3c061e"/><stop offset="70%" stop-color="#2a0414"/>
+        <stop offset="100%" stop-color="#0f0a12"/>
+      </radialGradient>
+    </defs>
+    <g class="hud-pulse glow">
+      <circle class="rot rot-b s-hud" cx="100" cy="100" r="86" stroke-width="3.4" stroke-dasharray="48 30" stroke-linecap="round"/>
+      <circle class="s-hud2" cx="100" cy="100" r="79" stroke-width="1" opacity="0.45"/>
+      <circle class="rot rot-c s-accent" cx="100" cy="100" r="70" stroke-width="4.2" stroke-dasharray="122 318" stroke-linecap="round"/>
+      <circle class="rot rot-d s-hud" cx="100" cy="100" r="55" stroke-width="1.2" stroke-dasharray="2 6" opacity="0.7"/>
+      <circle class="s-hud2" cx="100" cy="100" r="40" stroke-width="1" opacity="0.4"/>
+      <circle class="core-glow" cx="100" cy="100" r="37"/>
+      <circle class="core-disc" cx="100" cy="100" r="32"/>
+      <circle class="core-lobe" cx="100" cy="100" r="32"/>
+      <circle class="core-rim" cx="100" cy="100" r="32" stroke-width="1.2"/>
+      <text class="hud-label" x="100" y="103.5" text-anchor="middle">JETTY</text>
+    </g>
+  </svg>
+</div>
+
 <footer id="app-footer" aria-label="Beta notice">Beta system. We appreciate your feedback.</footer>
 
-<script src="/assets/app.js"></script>
+<!-- Onboarding overlay (first-launch guided tour) -->
+<div id="onboarding" hidden>
+  <div class="onboard-backdrop"></div>
+  <div class="onboard-card" role="dialog" aria-modal="true" aria-labelledby="onboard-title">
+    <div class="onboard-step" id="onboard-step-indicator">1 / 5</div>
+    <h2 id="onboard-title">Meet Jetty</h2>
+    <p id="onboard-body"></p>
+    <div class="onboard-actions">
+      <button type="button" id="onboard-skip" class="onboard-skip">Skip</button>
+      <button type="button" id="onboard-next" class="onboard-next">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/assets/app.js"></script>
+<script type="module" src="/assets/onboarding.js"></script>
 </body>
 </html>

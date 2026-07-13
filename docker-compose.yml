@@ -13,7 +13,7 @@ services:
       APP_REGION:         ${APP_REGION:-Salt Lake City, Utah}
       MODEL_PROVIDER:     ${MODEL_PROVIDER:-groq}
       ANTHROPIC_API_KEY:  ${ANTHROPIC_API_KEY}
-      ANTHROPIC_MODEL:    ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      ANTHROPIC_MODEL:    ${ANTHROPIC_MODEL:-claude-haiku-4-5}
       OPENAI_API_KEY:     ${OPENAI_API_KEY}
       OPENAI_MODEL:       ${OPENAI_MODEL:-gpt-4o-mini}
       SYNTHIA_GATEWAY_BASE_URL: ${SYNTHIA_GATEWAY_BASE_URL}
@@ -28,6 +28,9 @@ services:
       HERMES_AGENT_API:   ${HERMES_AGENT_API}
       HERMES_BASE_URL:    ${HERMES_BASE_URL:-https://inference-api.nousresearch.com/v1}
       COMPOSIO_API_TOKEN: ${COMPOSIO_API_TOKEN}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-${ELEVEN_LABS_API}}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-cgSgspJ2msm6clMCkdW9}
+      ELEVENLABS_MODEL:   ${ELEVENLABS_MODEL:-eleven_turbo_v2_5}
       VERONIKA_PG_DSN:    postgresql://supabase_admin:072090156d28a9df6502d94083e47990@10.0.6.12:5434/postgres
       ALLOWED_ORIGINS:    ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
       RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-45}
@@ -46,19 +49,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-
-  jetty-assistant:
-    build:
-      context: ./brain-jetty
-      dockerfile: Dockerfile
-    container_name: jetty-assistant
-    ports:
-      - "4719:4719"
-    environment:
-      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
-    restart: unless-stopped
-    networks:
-      - default
 
 networks:
   default: {}
