@@ -19,25 +19,24 @@
   }
 
   function coverRect(iw, ih, w, h) {
-    // Portrait phones: don't crop 70%+ of a landscape image.
-    // Use "contain" (full image visible) on tall screens so the Spiral Jetty
-    // and water stay in frame. Bars are filled by the basalt bg + vignette.
+    // Focal-point cover: always fill the screen (no letterbox bars), but on
+    // portrait phones bias the crop window toward the lower portion of the
+    // image where the Spiral Jetty + water live (roughly 55-60% down).
+    // Classic centered cover crops the top and bottom equally, which on a
+    // 9:19.5 phone removes the water entirely. Focal-point keeps it.
     const screenAspect = w / h;
-    const imgAspect = iw / ih;
     const portrait = screenAspect < 0.85;
-    if (portrait) {
-      // Contain: scale to fit, center vertically biased slightly toward water
-      const s = Math.min(w / iw, h / ih);
-      const sw = iw * s, sh = ih * s;
-      const sx = 0;
-      const sy = Math.max(0, (h - sh) / 2); // centered, bars top+bottom
-      // For the source-image crop rect (used by drawWaterOnly), map back:
-      return { sx: 0, sy: 0, sw: iw, sh: ih };
-    }
-    // Landscape/tablet/desktop: classic cover, centered
+    // focal point in source-image space (0=top, 1=bottom).
+    // The spiral sits ~60% down the jetty-hero-clean image; the water below.
+    const focalY = portrait ? 0.60 : 0.50;
+
     const s = Math.max(w / iw, h / ih);
     const sw = w / s, sh = h / s;
-    return { sx: (iw - sw) / 2, sy: (ih - sh) / 2, sw, sh };
+    let sy = focalY * ih - sh / 2;
+    // clamp to image bounds
+    sy = Math.max(0, Math.min(ih - sh, sy));
+    const sx = (iw - sw) / 2;
+    return { sx, sy, sw, sh };
   }
 
   function resize() {
