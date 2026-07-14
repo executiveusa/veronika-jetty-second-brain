@@ -7,7 +7,9 @@
 (function () {
   "use strict";
 
-  const ONBOARDED_KEY = "jetty_onboarded";
+  // Bumping the version suffix forces the tour to replay for everyone whose
+  // browser dismissed an earlier version (e.g. during testing). v2 = reset for delivery.
+  const ONBOARDED_KEY = "jetty_onboarded_v2";
 
   const CHAPTERS = [
     {
@@ -112,6 +114,14 @@
     // Delay show until galaxy has rendered (2s) so the backdrop frames the galaxy
     setTimeout(show, 2200);
   }
+
+  // Allow manual replay from the console or a future menu item: window.replayOnboarding()
+  // Useful during demos if she wants to see the tour again.
+  window.replayOnboarding = function () {
+    try { localStorage.removeItem(ONBOARDED_KEY); } catch (_) { }
+    step = 0;
+    show();
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
