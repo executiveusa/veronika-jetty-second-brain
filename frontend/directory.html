@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Utah Wellness Directory — Find Yoga, Herbalists & Retreats in Utah</title>
+  <link rel="stylesheet" href="/assets/wellness.css">
+  <style>
+    body { display: block; overflow-y: auto; background-color: var(--cream-bg); }
+    .dir-header { background: var(--dark-forest); color: var(--white); padding: 48px 32px; text-align: center; }
+    .dir-header h1 { font-family: var(--font-header); font-size: 2.2rem; margin-bottom: 12px; color: var(--warm-gold); }
+    .dir-header p { max-width: 600px; margin: 0 auto; color: var(--sage-light); font-size: 1.05rem; }
+    .dir-container { max-width: 1100px; margin: -30px auto 60px; padding: 0 20px; }
+    .filter-bar { background: var(--white); border-radius: var(--radius-md); padding: 20px; box-shadow: var(--shadow-md); display: flex; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+    .filter-bar select, .filter-bar input { flex: 1; min-width: 200px; padding: 10px 14px; border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-family: var(--font-body); }
+    .biz-card { background: var(--white); border-radius: var(--radius-md); padding: 24px; border: 1px solid var(--border-light); box-shadow: var(--shadow-sm); display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .biz-name { font-family: var(--font-header); font-size: 1.2rem; font-weight: 700; color: var(--dark-forest); margin-bottom: 4px; }
+    .biz-tagline { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; }
+    .claim-banner { background: var(--warm-gold-light); border-left: 4px solid var(--warm-gold); padding: 12px 16px; margin-top: 40px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+
+  <header class="dir-header">
+    <h1>Utah Wellness Directory</h1>
+    <p>Discover verified yoga studios, natural health practitioners, and retreat organizers across Salt Lake City, Provo, Park City, and Moab.</p>
+  </header>
+
+  <main class="dir-container">
+    <div class="filter-bar">
+      <select id="filter-city">
+        <option value="">All Locations (Utah)</option>
+        <option value="salt-lake-city">Salt Lake City</option>
+        <option value="provo">Provo / Orem</option>
+        <option value="park-city">Park City</option>
+        <option value="moab">Moab</option>
+      </select>
+      <select id="filter-category">
+        <option value="">All Categories</option>
+        <option value="yoga-studios">Yoga Studios</option>
+        <option value="natural-health">Natural Health Practitioners</option>
+        <option value="retreat-organizers">Retreat Organizers</option>
+        <option value="wellness-products">Wellness Products & Retail</option>
+      </select>
+      <button class="btn-primary" onclick="loadDirectory()">Filter Directory</button>
+    </div>
+
+    <div id="directory-list">Loading Utah business listings...</div>
+
+    <div class="claim-banner">
+      <div>
+        <strong style="color: var(--dark-forest);">Own a wellness business in Utah?</strong>
+        <p style="font-size:0.85rem; color: var(--text-muted);">Claim your free listing to verify details and connect Jetty Wellness automation tools.</p>
+      </div>
+      <a href="/app" class="btn-primary" style="text-decoration:none;">Claim Your Free Listing →</a>
+    </div>
+  </main>
+
+  <script>
+    async function loadDirectory() {
+      const city = document.getElementById('filter-city').value;
+      const category = document.getElementById('filter-category').value;
+      let url = '/api/directory/businesses?';
+      if (city) url += 'city=' + city + '&';
+      if (category) url += 'category=' + category;
+
+      const res = await fetch(url);
+      const data = await res.json();
+      const container = document.getElementById('directory-list');
+
+      if (!data || data.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding: 40px; color: var(--text-muted);">No businesses found matching this filter.</p>';
+        return;
+      }
+
+      container.innerHTML = data.map(b => `
+        <div class="biz-card">
+          <div>
+            <div class="biz-name">
+              ${b.name} 
+              ${b.verified_badge ? '<span class="badge badge-vip">✓ Verified</span>' : ''}
+              ${b.is_jetty_customer ? '<span class="badge badge-active">⚡ Jetty Partner</span>' : ''}
+            </div>
+            <div class="biz-tagline">${b.tagline}</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted);">${b.address} • ${b.phone}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-weight: 700; color: var(--warm-gold); font-size: 1.1rem;">★ ${b.rating}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); mb-2">${b.review_count} Verified Reviews</div>
+            <button class="btn-secondary" onclick="claimListing('${b.slug}')" style="margin-top: 8px; font-size: 0.8rem;">
+              ${b.is_claimed ? 'Claimed' : 'Claim Free Listing'}
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function claimListing(slug) {
+      const name = prompt("Enter your name to claim this business listing:");
+      if (!name) return;
+      const email = prompt("Enter your business email:");
+      if (!email) return;
+
+      const res = await fetch('/api/directory/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_slug: slug, claimant_name: name, claimant_email: email, claimant_phone: '(801) 555-0100' })
+      });
+      const data = await res.json();
+      alert(data.message || 'Listing claimed!');
+      loadDirectory();
+    }
+
+    document.addEventListener('DOMContentLoaded', loadDirectory);
+  </script>
+</body>
+</html>

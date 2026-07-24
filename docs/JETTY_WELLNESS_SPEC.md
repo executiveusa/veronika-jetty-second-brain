@@ -211,3 +211,63 @@ CREATE TABLE automations (
 
 </jetty-wellness-build-spec>
 ```
+
+---
+
+## **PART 13: THE FLYWHEEL — WHY THREE PIECES BEAT ONE APP**
+
+The mistake that kills most niche software is treating the product as the only thing customers pay for and the only thing that creates value. The system below has three parts that each do something the others can't, and each one makes the other two stronger:
+
+1. **The App (Jetty Wellness)**: Where paying customers run their business.
+2. **The Directory**: A free, public, consumer-facing listing of every wellness business in Utah — not just Jetty customers. Top of the funnel, eligible for AI answer engine citation (AEO).
+3. **THE JETTY (Blog & Newsletter)**: The editorial layer that makes the Directory findable in Google & AI answer engines while delivering authentic local value.
+
+---
+
+## **PART 14: THE UTAH WELLNESS DIRECTORY — FULL SPEC**
+
+### 14.1 Data Model
+- **Businesses**: Name, category, city/service area, hours, contact, description, photos, claimed status, Jetty customer status.
+- **Categories**: Yoga Studios, Natural Health Practitioners, Retreat Organizers, Wellness Products/Retail, Massage & Bodywork, Meditation Centers.
+- **Locations**: Salt Lake City, Provo/Orem, Park City, St. George, Ogden, Logan, Moab.
+- **Reviews**: Sourced reviews (aggregated from Google with attribution, never fabricated).
+- **Leads**: Visitor inquiries routed to the business, and newsletter signups captured on page.
+- **Claims**: Ownership verification flow when a business claims its free listing.
+
+### 14.2 Programmatic Page Architecture
+- `/directory` → all businesses, filterable
+- `/directory/[city]` → e.g. `/directory/provo`
+- `/directory/[category]` → e.g. `/directory/yoga-studios`
+- `/directory/[city]/[category]` → e.g. `/directory/provo/yoga-studios` (42 specific landing pages)
+- `/directory/[business-slug]` → individual business profile
+
+---
+
+## **PART 15: THE JETTY — BLOG & NEWSLETTER SYSTEM**
+
+### 15.1 Content Pillars & AI Search (AEO)
+- **Cost & Budgeting**: "What it really costs to open a yoga studio in Utah"
+- **Risk & Mistakes**: "5 mistakes first-time retreat organizers make in Utah"
+- **Comparisons**: "Hot yoga vs. vinyasa: which studio model fits your space"
+- **How-To Guides**: "How to plan your first Utah wellness retreat, step by step"
+- **Local/Regional**: "Utah's wellness retreat season calendar"
+- **Founder Spotlights**: Real interviews with Jetty customers
+- **Trust/Selection**: "How to choose a natural healing practitioner in Salt Lake City"
+
+---
+
+## **PART 16: TECHNICAL BUILD — PAYLOAD & SHARED COLLECTIONS**
+
+- **Shared Collections**: `businesses`, `categories`, `locations` shared between Directory & Blog.
+- **Internal Linking**: `proposeInternalLinks` links blog articles to category landing pages.
+- **Editorial Truth Policy**: Strictly verified claims only. No fake stats or reviews.
+
+---
+
+## **PART 17: REVISED GO-TO-MARKET — DIRECTORY & CONTENT-LED**
+
+- **Weeks 1-4**: Seed Directory with all Utah wellness businesses across 42 landing pages. Publish 10 articles. Launch newsletter.
+- **Weeks 5-8**: Directory ranks for long-tail queries & AI answer engines. Business owners claim listings.
+- **Weeks 9-12**: Customer founder spotlights published. Retarget Directory claim visitors.
+- **Months 4-6**: Organic word-of-mouth referral flywheel compounds.
+

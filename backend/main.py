@@ -1203,6 +1203,104 @@ def toggle_wellness_automation(aut_id: str):
             return a
     raise HTTPException(404, "Automation not found")
 
+# ── UTAH WELLNESS DIRECTORY (Phase 1 Flynnwheel Engine) ───────────────────────
+
+DIRECTORY_CATEGORIES = [
+    {"slug": "yoga-studios", "name": "Yoga Studios", "description": "Top-rated yoga, vinyasa, and hot yoga studios across Utah."},
+    {"slug": "natural-health", "name": "Natural Health Practitioners", "description": "Licensed herbalists, acupuncturists, and holistic practitioners."},
+    {"slug": "retreat-organizers", "name": "Retreat Organizers", "description": "Mountain, desert, and wellness retreat organizers in Utah."},
+    {"slug": "wellness-products", "name": "Wellness Products & Retail", "description": "Local adaptogens, supplements, herbal blends, and skincare."},
+    {"slug": "massage-bodywork", "name": "Massage & Bodywork", "description": "Therapeutic massage, bodywork, and energy healing."},
+    {"slug": "meditation-centers", "name": "Meditation Centers", "description": "Sound bath, mindfulness, and meditation sanctuaries."}
+]
+
+DIRECTORY_LOCATIONS = [
+    {"slug": "salt-lake-city", "name": "Salt Lake City", "region": "Salt Lake County"},
+    {"slug": "provo", "name": "Provo / Orem", "region": "Utah County"},
+    {"slug": "park-city", "name": "Park City", "region": "Summit County"},
+    {"slug": "st-george", "name": "St. George", "region": "Washington County"},
+    {"slug": "ogden", "name": "Ogden", "region": "Weber County"},
+    {"slug": "logan", "name": "Logan", "region": "Cache County"},
+    {"slug": "moab", "name": "Moab", "region": "Grand County"}
+]
+
+DIRECTORY_BUSINESSES = [
+    {
+        "slug": "wasatch-wellness-studio",
+        "name": "Wasatch Wellness Studio",
+        "category_slug": "yoga-studios",
+        "location_slug": "provo",
+        "tagline": "Community-first yoga & chakra balancing in Provo",
+        "address": "145 N University Ave, Provo, UT 84601",
+        "phone": "(801) 555-0192",
+        "rating": 4.9,
+        "review_count": 38,
+        "is_claimed": True,
+        "is_jetty_customer": True,
+        "verified_badge": True
+    },
+    {
+        "slug": "salt-lake-botanical-health",
+        "name": "Salt Lake Botanical Health",
+        "category_slug": "natural-health",
+        "location_slug": "salt-lake-city",
+        "tagline": "Clinical herbalism & natural wellness consultations",
+        "address": "1200 E 900 S, Salt Lake City, UT 84105",
+        "phone": "(801) 555-0144",
+        "rating": 4.8,
+        "review_count": 24,
+        "is_claimed": False,
+        "is_jetty_customer": False,
+        "verified_badge": False
+    },
+    {
+        "slug": "high-altitude-healing",
+        "name": "High Altitude Healing Retreats",
+        "category_slug": "retreat-organizers",
+        "location_slug": "park-city",
+        "tagline": "Luxury alpine mindfulness and yoga retreats in Park City",
+        "address": "Park City, UT 84060",
+        "phone": "(435) 555-0188",
+        "rating": 5.0,
+        "review_count": 19,
+        "is_claimed": True,
+        "is_jetty_customer": True,
+        "verified_badge": True
+    }
+]
+
+class ClaimRequest(BaseModel):
+    business_slug: str
+    claimant_name: str
+    claimant_email: str
+    claimant_phone: str
+
+@app.get("/api/directory/categories")
+def get_directory_categories():
+    return DIRECTORY_CATEGORIES
+
+@app.get("/api/directory/locations")
+def get_directory_locations():
+    return DIRECTORY_LOCATIONS
+
+@app.get("/api/directory/businesses")
+def get_directory_businesses(city: Optional[str] = None, category: Optional[str] = None):
+    results = DIRECTORY_BUSINESSES
+    if city:
+        results = [b for b in results if b["location_slug"] == city.lower()]
+    if category:
+        results = [b for b in results if b["category_slug"] == category.lower()]
+    return results
+
+@app.post("/api/directory/claim")
+def submit_directory_claim(claim: ClaimRequest):
+    for b in DIRECTORY_BUSINESSES:
+        if b["slug"] == claim.business_slug:
+            b["is_claimed"] = True
+            b["verified_badge"] = True
+            return {"ok": True, "message": f"Listing '{b['name']}' successfully claimed! Upgrade to Jetty Wellness unlocked.", "business": b}
+    raise HTTPException(404, "Business listing not found.")
+
 @app.get("/")
 def index():
     index_path = FRONTEND_DIR / "index.html"
@@ -1219,6 +1317,20 @@ def app_index():
     if app_path.exists():
         return FileResponse(app_path)
     raise HTTPException(404, "Frontend assets not deployed with this backend.")
+
+@app.get("/directory")
+def directory_index():
+    dir_path = FRONTEND_DIR / "directory.html"
+    if dir_path.exists():
+        return FileResponse(dir_path)
+    raise HTTPException(404, "Directory page not found.")
+
+@app.get("/directory/{subpath:path}")
+def directory_subpath(subpath: str):
+    dir_path = FRONTEND_DIR / "directory.html"
+    if dir_path.exists():
+        return FileResponse(dir_path)
+    raise HTTPException(404, "Directory page not found.")
 
 @app.get("/brain")
 def brain_index():
@@ -1237,4 +1349,5 @@ def app_brain_index():
 assets_dir = FRONTEND_DIR / "assets"
 if assets_dir.exists():
     app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
 
