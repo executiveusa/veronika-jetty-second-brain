@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>AI Workshop OS — Interactive Brain</title>
+<title>SECOND BRAIN — Interactive Map</title>
 <style>
   :root { --accent: #34d399; --panel: rgba(10,13,18,.82); --line: #1f2937; --txt: #cbd5e1; --dim: #64748b; }
   html, body { margin: 0; height: 100%; background: #06080c; overflow: hidden;
@@ -175,7 +175,7 @@
   <div class="brandrow">
     <img src="logo.png" alt="AI Workshop">
     <div>
-      <h1>AI WORKSHOP OS</h1>
+      <h1>SECOND BRAIN</h1>
       <div class="sub" id="counts">—</div>
     </div>
   </div>
@@ -229,7 +229,7 @@
   <button id="snap" title="Save PNG">📸</button>
 </div>
 <div id="legend"><div class="title">Filter</div></div>
-<div id="brand">AI Workshop OS · built with Claude Code</div>
+<div id="brand">SECOND BRAIN · built with Claude Code</div>
 <div id="tip"></div>
 <div id="toast"></div>
 <div id="rmenu"></div>
@@ -261,7 +261,7 @@ resize(); addEventListener('resize', resize);
 if (innerWidth < 700) document.body.classList.add('collapsed');
 
 const STYLE = GRAPH.groups;
-const BRAND = GRAPH.brand || { name: 'AI WORKSHOP OS', logo: true };
+const BRAND = GRAPH.brand || { name: 'SECOND BRAIN', logo: false };
 document.title = BRAND.name + ' — Interactive Brain';
 document.querySelector('#side h1').textContent = BRAND.name;
 document.getElementById('brand').textContent = BRAND.name + ' · built with Claude Code';

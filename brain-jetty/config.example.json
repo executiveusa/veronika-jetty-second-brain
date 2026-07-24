@@ -65,5 +65,21 @@
     "lights": []
   },
 
+  "tools": {
+    "_comment": "The 🔌 Tool Armory's engine. Tool runs execute on a fast Claude tier by default so answers stay quick even when your chat brain is a bigger model. You rarely need to change this.",
+    "model": "claude-sonnet-5"
+  },
+
+  "telegram": {
+    "_comment": "OPTIONAL 📱 Pocket Jetty: text your brain from your phone. 2 minutes: message @BotFather on Telegram, send /newbot, paste the token here, restart, then say 'Jetty, pocket code' and send that code to your bot. Reminders and urgent cards get pushed to your phone when you are away from the desk.",
+    "bot_token": ""
+  },
+
+  "google": {
+    "_comment": "OPTIONAL for the native Gmail and Google Calendar tiles. Easiest path: skip this and use Zapier for Gmail and Calendar instead (see GET-STARTED). Advanced: create an OAuth client at console.cloud.google.com and paste it here.",
+    "client_id": "",
+    "client_secret": ""
+  },
+
   "_duplex_comment": "LIVE full-duplex voice (the 📡 button) uses ElevenLabs Agents with THIS server as the custom LLM, so the brain stays Claude + your vault. It needs (1) an ElevenLabs api_key WITH Agents/Conversational-AI scope (above), and (2) a public https tunnel to port 4722. See integrations/TAILSCALE.md, then run: python3 setup_duplex.py --url <public-url>. State lands in jetty-duplex.json (gitignored)."
 }

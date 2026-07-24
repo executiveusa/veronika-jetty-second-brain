@@ -555,11 +555,12 @@ addEventListener('keydown', e => {
   if (e.key === 'Escape') { clearFocus(); searchEl.value=''; searchTerm=''; refresh(); }
 });
 
-function addNote(label, text, targetIdx){
+function addNote(label, text, targetIdx, group){
   const id = data.nodes.length;
   const aId = (targetIdx != null && targetIdx >= 0 && targetIdx < data.nodes.length)
     ? targetIdx : (focusNode ? focusNode.id : 0);      // link to the named node, else the focused one
-  const newNode = { id, label: label || 'New note', g: 'note', p: text || '', dg: 1,
+  const g = (group && GRAPH.groups && GRAPH.groups[group]) ? group : 'note';   // server-assigned kind (core/concept/note)
+  const newNode = { id, label: label || 'New note', g, p: text || '', dg: 1,
     val: 3.4, heat: '#3ee6a8' };                       // newest = brightest, even in heat mode
   // birth PLACE: right beside its anchor (a random far-away spawn = invisible dark dot + a long
   // confusing line). With coords set, the engine keeps them and the camera can fly instantly.
@@ -631,21 +632,23 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   .jt-c{color:#34d399;cursor:pointer;flex-shrink:0;user-select:none;}
   .jt-c:hover{color:#fff;}
   /* ---- Agent Inbox: cards raised by background daemons (notify / ask / approve) ---- */
-  #j-inbox{position:fixed;right:22px;top:18px;z-index:57;width:240px;max-height:64vh;overflow:auto;background:rgba(8,14,18,.94);border:1px solid rgba(56,189,248,.30);border-radius:12px;padding:11px 13px;backdrop-filter:blur(12px);display:none;font-family:-apple-system,system-ui,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.6);}
-  #j-inbox h4{font-family:'SF Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:.16em;color:#7af0ff;margin:0 0 9px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;}
-  #j-inbox h4 .jc-n{color:#06121a;background:#7af0ff;border-radius:99px;padding:1px 7px;font-size:9px;font-weight:700;}
-  .jc{border:1px solid rgba(56,189,248,.18);border-radius:9px;padding:7px 9px;margin-bottom:7px;background:rgba(56,189,248,.05);}
-  .jc.jc-hi{border-color:rgba(245,200,90,.55);background:rgba(245,180,70,.09);}
-  .jc-t{font-size:12px;color:#eaf0ec;font-weight:600;line-height:1.35;}
-  .jc-b{font-size:11px;color:#9fb2ab;margin-top:3px;line-height:1.42;}
-  .jc-a{margin-top:7px;display:flex;gap:6px;flex-wrap:wrap;}
-  .jc-a button{font-size:10.5px;border-radius:6px;padding:3px 10px;cursor:pointer;border:1px solid rgba(56,189,248,.3);background:rgba(56,189,248,.12);color:#cde8ff;font-family:inherit;}
-  .jc-a button:hover{filter:brightness(1.25);}
-  .jc-do{border-color:rgba(52,211,153,.5)!important;background:rgba(52,211,153,.2)!important;color:#7ef0c2!important;}
+  /* solid layered surfaces + sans body + standard solid buttons — no translucent washes
+     (user 2026-07-13: the old cyan-wash card read as "AI-made and childish") */
+  #j-inbox{position:fixed;right:22px;top:18px;z-index:57;width:264px;max-height:64vh;overflow:auto;background:#10161d;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px 13px;backdrop-filter:blur(12px);display:none;font-family:-apple-system,system-ui,sans-serif;box-shadow:0 14px 44px rgba(0,0,0,.55);}
+  #j-inbox h4{font-family:'SF Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:.16em;color:#8fa39a;margin:0 0 9px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;}
+  #j-inbox h4 .jc-n{color:#07130d;background:#34d399;border-radius:99px;padding:1px 7px;font-size:9px;font-weight:700;}
+  .jc{border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:11px 12px;margin-bottom:8px;background:#1a212a;box-shadow:0 4px 14px rgba(0,0,0,.35);}
+  .jc.jc-hi{border-color:rgba(245,200,90,.45);background:#221d13;}
+  .jc-t{font-size:12.5px;color:#f2f6f3;font-weight:600;line-height:1.4;}
+  .jc-b{font-size:11.5px;color:#b6c1bb;margin-top:5px;line-height:1.55;}
+  .jc-a{margin-top:9px;display:flex;gap:7px;flex-wrap:wrap;}
+  .jc-a button{font-size:11px;border-radius:7px;padding:5px 12px;cursor:pointer;border:1px solid #464a53;background:#2f323a;color:#e6e8ee;font-family:inherit;}
+  .jc-a button:hover{filter:brightness(1.18);}
+  .jc-do{border-color:#2e6b52!important;background:#245844!important;color:#dcffe9!important;}
 
   /* ---- Jetty HUD reactor (right side) — steady concentric spin (no idle pulsing);
          the central J.A.R.V.I.S. lobe glows live, in rhythm with Jetty's voice ---- */
-  #j-orb{position:fixed;right:34px;top:46%;transform:translateY(-50%);z-index:54;width:204px;height:204px;pointer-events:none;display:none;
+  #j-orb{position:fixed;right:34px;top:46%;transform:translateY(-50%);z-index:54;width:204px;height:204px;pointer-events:auto;cursor:grab;display:none;
     --hud:#62dbff; --hud2:#2f9fd0; --accent:#f4a93a; --glow:rgba(70,200,255,.5); --beat:0;}
   /* Jetty status panel — state + detail + brain chip, stacked under the HUD on the right */
   #j-state{position:fixed;right:34px;left:auto;top:calc(46% + 112px);width:204px;text-align:center;z-index:55;pointer-events:none;
@@ -681,6 +684,16 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   #j-orb.is-listen{--hud:#79f0ff;--glow:rgba(120,235,255,.72);}
   #j-orb.is-think{--hud:#9cccdd;--accent:#ffd06a;--glow:rgba(244,169,58,.5);}
   #j-orb.is-speak{--hud:#7dffd9;--glow:rgba(60,230,170,.8);}
+  /* bottom dock buttons — solid chips, emoji glow so dark glyphs read on the dark scene,
+     and instant hover tooltips (user: "almost invisible" + "tell me exactly what it is") */
+  .j-dock{position:relative;text-shadow:0 0 8px rgba(214,255,240,.30);}
+  .j-dock:hover{filter:brightness(1.25);}
+  .j-dock::after{content:attr(data-tip);position:absolute;bottom:56px;right:0;background:#10161c;
+    border:1px solid rgba(52,211,153,.4);color:#e2ece7;font-size:11.5px;font-weight:600;letter-spacing:.02em;
+    padding:7px 11px;border-radius:9px;white-space:nowrap;opacity:0;pointer-events:none;
+    transform:translateY(4px);transition:opacity .16s,transform .16s;
+    font-family:-apple-system,'Segoe UI',sans-serif;text-shadow:none;z-index:80;}
+  .j-dock:hover::after{opacity:1;transform:translateY(0);}
 </style>
 <div id="j-inbox"><h4>JETTY · Inbox <span class="jc-n" id="j-inbox-n" style="display:none"></span></h4><div id="j-inbox-list"></div></div>
 <div id="j-tasks"><h4>Tasks</h4><div id="j-tasks-list"></div></div>
@@ -710,23 +723,23 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
 </svg></div>
 <div id="j-state"><span class="dot"></span><span id="j-state-txt">ONLINE</span></div>
 <div id="j-status" style="font-family:'SF Mono',ui-monospace,monospace;font-size:10.5px;color:#5a6b62;letter-spacing:.08em;"></div>
-<div id="j-brain" style="position:fixed;right:34px;left:auto;top:calc(46% + 162px);width:204px;text-align:center;z-index:55;pointer-events:none;"><span style="display:inline-block;font-family:'SF Mono',ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#2e6b52;border:1px solid rgba(52,211,153,.28);border-radius:999px;padding:5px 14px;background:rgba(10,22,18,.72);backdrop-filter:blur(6px);" id="j-brain-chip"></span></div>
+<div id="j-brain" style="position:fixed;right:34px;left:auto;top:calc(46% + 196px);width:204px;text-align:center;z-index:55;pointer-events:none;"><span style="display:inline-block;font-family:'SF Mono',ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#2e6b52;border:1px solid rgba(52,211,153,.28);border-radius:999px;padding:5px 14px;background:rgba(10,22,18,.72);backdrop-filter:blur(6px);" id="j-brain-chip"></span></div>
 
 <div id="jetty" style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;align-items:center;gap:12px;width:min(660px,92vw);font-family:-apple-system,system-ui,sans-serif;">
   <div id="j-answer" style="display:none;max-width:100%;background:rgba(10,16,20,.92);border:1px solid rgba(52,211,153,.3);border-radius:14px;padding:13px 17px;color:#eaf0ec;font-size:14.5px;line-height:1.55;backdrop-filter:blur(10px);box-shadow:0 12px 44px rgba(0,0,0,.55);"></div>
   <div style="display:flex;gap:10px;align-items:center;width:100%;">
     <input id="j-input" placeholder="Ask · &quot;remind me…&quot; · &quot;good morning&quot; · &quot;show me…&quot; · &quot;remember…&quot;" autocomplete="off"
       style="flex:1;background:rgba(10,16,20,.92);border:1px solid rgba(52,211,153,.25);border-radius:99px;padding:12px 18px;color:#eaf0ec;font-size:14px;outline:none;backdrop-filter:blur(10px);">
-    <button id="j-live" title="Live conversation — full duplex, interrupt anytime"
-      style="flex-shrink:0;width:46px;height:46px;border-radius:50%;border:1px solid rgba(52,211,153,.25);background:rgba(52,211,153,.08);color:#5a6b62;font-size:17px;cursor:pointer;backdrop-filter:blur(10px);">📡</button>
-    <button id="j-screen" title="Share your screen so Jetty can see it"
-      style="flex-shrink:0;width:46px;height:46px;border-radius:50%;border:1px solid rgba(52,211,153,.25);background:rgba(52,211,153,.08);color:#5a6b62;font-size:17px;cursor:pointer;backdrop-filter:blur(10px);">🖥</button>
-    <button id="j-bell" title="Proactive briefing — greet me each morning"
-      style="flex-shrink:0;width:46px;height:46px;border-radius:50%;border:1px solid rgba(52,211,153,.25);background:rgba(52,211,153,.08);color:#5a6b62;font-size:17px;cursor:pointer;backdrop-filter:blur(10px);">🔔</button>
-    <button id="j-wake" title="Hands-free — say 'Jetty, …'"
-      style="flex-shrink:0;width:46px;height:46px;border-radius:50%;border:1px solid rgba(52,211,153,.25);background:rgba(52,211,153,.08);color:#5a6b62;font-size:17px;cursor:pointer;backdrop-filter:blur(10px);">👂</button>
-    <button id="j-mic" title="Click and speak"
-      style="flex-shrink:0;width:46px;height:46px;border-radius:50%;border:1px solid rgba(52,211,153,.4);background:rgba(52,211,153,.15);color:#34d399;font-size:18px;cursor:pointer;backdrop-filter:blur(10px);">🎙</button>
+    <button id="j-live" class="j-dock" data-tip="Live call — talk with Jetty in real time"
+      style="flex-shrink:0;width:46px;height:46px;border-radius:50%;border:1px solid rgba(52,211,153,.45);background:#212b30;color:#5a6b62;font-size:17px;cursor:pointer;backdrop-filter:blur(10px);">📡</button>
+    <button id="j-screen" class="j-dock" data-tip="Screen share — let Jetty see your screen"
+      style="flex-shrink:0;width:46px;height:46px;border-radius:50%;border:1px solid rgba(52,211,153,.45);background:#212b30;color:#5a6b62;font-size:17px;cursor:pointer;backdrop-filter:blur(10px);">🖥</button>
+    <button id="j-bell" class="j-dock" data-tip="Daily morning briefing — on/off"
+      style="flex-shrink:0;width:46px;height:46px;border-radius:50%;border:1px solid rgba(52,211,153,.45);background:#212b30;color:#5a6b62;font-size:17px;cursor:pointer;backdrop-filter:blur(10px);">🔔</button>
+    <button id="j-wake" class="j-dock" data-tip="Hands-free mode — just say 'Jetty…'"
+      style="flex-shrink:0;width:46px;height:46px;border-radius:50%;border:1px solid rgba(52,211,153,.45);background:#212b30;color:#5a6b62;font-size:17px;cursor:pointer;backdrop-filter:blur(10px);">👂</button>
+    <button id="j-mic" class="j-dock" data-tip="Tap to talk — ask one question"
+      style="flex-shrink:0;width:46px;height:46px;border-radius:50%;border:1px solid rgba(52,211,153,.55);background:#27423a;color:#34d399;font-size:18px;cursor:pointer;backdrop-filter:blur(10px);">🎙</button>
   </div>
 </div>
 
@@ -737,8 +750,54 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
         liveBtn=$('j-live'), brainEl=$('j-brain'),
         status=$('j-status'), wrap=$('jetty'), tasksEl=$('j-tasks'), tasksList=$('j-tasks-list'), orb=$('j-orb'), screenBtn=$('j-screen'),
         inboxEl=$('j-inbox'), inboxList=$('j-inbox-list');
-  let busy=false, pending=null, pendingCall=null, pendingOs=null, orbSpeak=false, orbThink=false, lastNote='';  // pending = drafted agent action; pendingCall = phone call awaiting "do it"; pendingOs = housekeeping plan awaiting "do it"; lastNote = last answer to read aloud
+  let busy=false, pending=null, pendingCall=null, pendingOs=null, orbSpeak=false, orbThink=false, lastNote='', lastLinks=[];  // pending = drafted agent action; pendingCall = phone call awaiting "do it"; pendingOs = housekeeping plan awaiting "do it"; lastNote = last answer to read aloud; lastLinks = URLs from the last answer ("open it")
   const SID='s'+Math.random().toString(36).slice(2);    // session id → conversation memory
+
+  // ---- the reactor is DRAGGABLE (TARS parity): grab the orb, park it anywhere — it remembers.
+  // The state label and brain chip travel with it; double-click sends it home; a plain click
+  // gets a little wake ripple. Position persists in localStorage across reloads.
+  (function orbDrag(){
+    if(!orb) return;
+    const stateEl=$('j-state');
+    let off={x:0,y:0}, drag=null;
+    function apply(){
+      const w=innerWidth, h=innerHeight;
+      if(w>300 && h>300){                                     // keep the disc inside the window —
+        off.x=Math.max(-(w-238), Math.min(34, off.x));        // but never clamp against a degenerate
+        off.y=Math.max(110-0.46*h, Math.min(0.54*h-110, off.y));   // (hidden/minimized) 0-size viewport
+      }
+      orb.style.transform=`translate(${off.x}px, calc(-50% + ${off.y}px))`;
+      const t=`translate(${off.x}px, ${off.y}px)`;
+      if(stateEl) stateEl.style.transform=t;
+      if(brainEl) brainEl.style.transform=t;
+    }
+    try{ const s=JSON.parse(localStorage.getItem('jetty-orb-pos')||'null');
+      if(s && isFinite(s.x) && isFinite(s.y)){ off=s; apply(); } }catch(e){}
+    orb.addEventListener('pointerdown', e=>{
+      drag={sx:e.clientX, sy:e.clientY, ox:off.x, oy:off.y, moved:false};
+      orb.style.cursor='grabbing';
+      try{ orb.setPointerCapture(e.pointerId); }catch(_){}
+      e.preventDefault();
+    });
+    orb.addEventListener('pointermove', e=>{
+      if(!drag) return;
+      const dx=e.clientX-drag.sx, dy=e.clientY-drag.sy;
+      if(Math.abs(dx)+Math.abs(dy)>4) drag.moved=true;
+      off={x:drag.ox+dx, y:drag.oy+dy}; apply();
+    });
+    const end=()=>{
+      if(!drag) return;
+      const moved=drag.moved; drag=null; orb.style.cursor='grab';
+      if(moved){ try{ localStorage.setItem('jetty-orb-pos', JSON.stringify(off)); }catch(_){} }
+      else { try{ window.__fx&&window.__fx.wake&&window.__fx.wake(); }catch(_){} }
+    };
+    orb.addEventListener('pointerup', end);
+    orb.addEventListener('pointercancel', end);
+    orb.addEventListener('dblclick', ()=>{ off={x:0,y:0}; apply();
+      try{ localStorage.removeItem('jetty-orb-pos'); }catch(_){} });
+    addEventListener('resize', apply);
+    window.__jettyOrbPos=()=>({...off});                     // test/debug hook
+  })();
   const escHtml=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   // presence orb + state label: speaking > thinking > listening > idle — always visible under the HUD
   const STATE_STYLE={speak:['SPEAKING','#7dffd9',1], think:['THINKING','#ffd06a',1],
@@ -783,7 +842,7 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   const SPKUNIT={mo:'month',month:'month',yr:'year',year:'year',wk:'week',week:'week',day:'day',hr:'hour',hour:'hour',min:'minute'};
   function speakable(t){
     t=String(t==null?'':t).replace(/[’‘]/g,"'").replace(/[“”]/g,'"');
-    t=t.replace(/https?:\/\/\S+|www\.\S+/g,'');
+    t=t.replace(/https?:\/\/\S+|www\.\S+|\b[a-z0-9][\w.-]*\.(?:com|ai|io|net|org|dev|app|co|me|so|xyz|gg|page|site|design|link)\/\S+/gi,'');   // URLs (incl. bare canva.com/d/…) are for the screen
     t=t.replace(/[*_`#]+/g,'');
     t=t.replace(/\/\s*(mo|month|yr|year|wk|week|day|hr|hour|min)s?\b/gi,(m,u)=>' a '+SPKUNIT[u.toLowerCase()]);
     t=t.replace(/(\d)\s*\/\s*(user|seat|person|license|email|contact|subscriber)s?\b/gi,(m,d,u)=>d+' per '+u.toLowerCase());
@@ -796,7 +855,23 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
     t=t.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}]/gu,'');
     return t.replace(/\s{2,}/g,' ').trim();
   }
-  function showLine(t){ ans.textContent=stripTags(t); ans.style.display='block'; }
+  // any URL in an answer becomes a LIVE link on screen (DOM nodes, never innerHTML — XSS-safe)
+  const URL_RE=/(https?:\/\/[^\s<>"')\]]+|\b[a-z0-9][\w.-]*\.(?:com|ai|io|net|org|dev|app|co|me|so|xyz|gg|page|site|design|link)\/[^\s<>"')\]]+)/gi;
+  function showLine(t){
+    t=stripTags(t); ans.textContent='';
+    URL_RE.lastIndex=0; let last=0, m;
+    while((m=URL_RE.exec(t))){
+      ans.appendChild(document.createTextNode(t.slice(last, m.index)));
+      const a=document.createElement('a');
+      a.href=(/^https?:/i.test(m[0])?'':'https://')+m[0];
+      a.target='_blank'; a.rel='noopener'; a.textContent=m[0];
+      a.style.cssText='color:#7dffd9;text-decoration:underline;text-underline-offset:2px;word-break:break-all;';
+      ans.appendChild(a);
+      last=m.index+m[0].length;
+    }
+    ans.appendChild(document.createTextNode(t.slice(last)));
+    ans.style.display='block';
+  }
 
   // live audio analyser → drives the central lobe's glow (--beat) in rhythm with Jetty's voice
   let actx=null, ana=null, abuf=null, raf=0, curAudio=null;
@@ -812,10 +887,10 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
     cancelAnimationFrame(raf);
     const loop=()=>{ ana.getByteFrequencyData(abuf); let s=0; for(let i=2;i<abuf.length;i++) s+=abuf[i];
       const lvl=Math.max(0, Math.min(1, (s/(abuf.length-2))/88));
-      if(orb) orb.style.setProperty('--beat', lvl.toFixed(3)); raf=requestAnimationFrame(loop); };
+      if(orb) orb.style.setProperty('--beat', lvl.toFixed(3)); window.__voiceLevel=lvl; raf=requestAnimationFrame(loop); };
     loop(); return true;
   }
-  function reactStop(){ cancelAnimationFrame(raf); raf=0; if(orb) orb.style.setProperty('--beat','0'); }
+  function reactStop(){ cancelAnimationFrame(raf); raf=0; if(orb) orb.style.setProperty('--beat','0'); window.__voiceLevel=0; }
   ['pointerdown','keydown','touchstart'].forEach(ev=>addEventListener(ev, audioCtx, {once:true}));  // resume audio on first gesture
 
   // speak with a hard ceiling so a TTS hiccup / muted device never hangs the queue.
@@ -823,7 +898,8 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   // VOICE: by default Jetty speaks in the browser's own voice (no key needed). Add an ElevenLabs
   // api_key + voice_id to config.json for the premium butler voice — then /tts wins automatically.
   // the room is Jetty's body: tell the server when the voice starts/stops so the lights can react
-  function jhue(event){ try{ fetch('/hue_event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event})}); }catch(e){} }
+  function jhue(event){ try{ window.__fx&&window.__fx.audio&&window.__fx.audio(event); }catch(e){}
+    try{ fetch('/hue_event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event})}); }catch(e){} }
 
   // ---- spoken acknowledgments: if a request is taking a while, Jetty says so instead of going silent.
   // The ack fires only if the work hasn't finished within `ms` — fast replies stay snappy, slow ones
@@ -833,7 +909,8 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
     fetch:["Fetching that now, sir.","Let me pull that up, sir.","One moment, sir — retrieving.","Right away, sir."],
     look: ["Let me have a look, sir.","Scanning now, sir.","One moment — eyes on it, sir."],
     agent:["On it, sir.","Right away, sir — this may take a moment.","Consider it underway, sir."],
-    web:  ["Consulting the internet, sir.","On the wires now, sir — a moment.","Searching as we speak, sir.","Let me see what the internet has to say, sir."]};
+    web:  ["Consulting the internet, sir.","On the wires now, sir — a moment.","Searching as we speak, sir.","Let me see what the internet has to say, sir."],
+    progress:["Still on it, sir.","Sir, still checking — the wires are being fashionably slow.","Working, sir. The internet is taking its sweet time.","A moment more, sir — I shall not return empty-handed.","Still digging, sir. Patience is a virtue I'm performing on your behalf.","Nearly there, sir. Allegedly.","Still at it, sir — good help really is hard to find.","Any second now, sir. I've seen glaciers with worse response times."]};
   function delayedAck(kind, ms){
     let spoke=null;
     const t=setTimeout(()=>{ if(speaking||liveKind) return;            // never talk over himself or a live call
@@ -841,21 +918,103 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
       spoke=speak(pool[Math.floor(Math.random()*pool.length)]); }, ms==null?900:ms);
     return { async settle(){ clearTimeout(t); if(spoke){ try{ await spoke; }catch(e){} } } };
   }
-  function speak(text){
+  // ---- progress HEARTBEAT for long tool work: never more than ~4s of silence. An opening ack,
+  // then a rotating witty status line 4s after each previous line ENDS, until settle() — which
+  // also awaits any line mid-air so the real answer never talks over it.
+  // "stop updating me" hush: progressLive holds the ACTIVE heartbeat's kill switch so the HUSH
+  // voice intent (armed only while a heartbeat is ticking) can silence updates for THIS task —
+  // the task keeps running and its final answer still speaks.
+  let progressLive=null;
+  const HUSH=/\b(?:that'?s (?:ok(?:ay)?|fine)|no need (?:to|for) (?:keep\s+)?(?:updat|check)\w*|don'?t (?:have to|need to) (?:keep\s+)?(?:me\s+)?(?:updat\w*|posted|informed)|stop (?:the )?updat(?:es|ing)|no more updates|(?:just\s+)?(?:get|come) back to me when|(?:just\s+)?let me know (?:once|when) (?:it'?s|you'?re) done|quiet until)\b/i;
+  function hushProgress(){ if(progressLive){ progressLive(); progressLive=null; return true; } return false; }
+  function progressAck(firstMs, pool){
+    let stopped=false, cur=null, timer=0, i=Math.floor(Math.random()*ACKS.progress.length);
+    const hush=()=>{ stopped=true; clearTimeout(timer); };
+    progressLive=hush;
+    const sayLine=async(line)=>{ if(stopped) return;
+      if(speaking||liveKind||vad.hold){ schedule(1500); return; }      // wrong moment — try again shortly
+      console.debug('[ack] progress:', line);
+      cur=speak(line); try{ await cur; }catch(e){} cur=null;
+      schedule(5000); };                                               // ~5s between status lines (was 4 — 3s felt naggy)
+    const schedule=(ms)=>{ if(stopped) return; clearTimeout(timer);
+      timer=setTimeout(()=>sayLine(ACKS.progress[i++ % ACKS.progress.length]), ms); };
+    const opener=ACKS[pool]||ACKS.agent||['On it, sir.'];
+    timer=setTimeout(()=>sayLine(opener[Math.floor(Math.random()*opener.length)]), firstMs==null?1200:firstMs);
+    return { async settle(){ stopped=true; clearTimeout(timer); if(progressLive===hush) progressLive=null;
+      if(cur){ try{ await cur; }catch(e){} } } };
+  }
+  // ---- chunked speech: long reports split at sentence boundaries into a GAPLESS queue (the next
+  // chunk's audio is fetched while the current one plays). One bad chunk — a decode stall, an
+  // engine limit, a TTS hiccup — now loses at most ~30s of speech and the queue carries on
+  // (user-reported: long reads kept dying partway; a single Audio object was one point of failure).
+  let speakSeq=0;                                    // cutVoice bumps this → queued chunks are abandoned
+  function splitSpeech(t){
+    t=String(t);
+    if(t.length<=460) return [t];
+    const segs=t.match(/[\s\S]*?[.!?…]+["')\]]*(?:\s+|$)|[\s\S]+$/g)||[t];   // enders only count before whitespace — "3.5" never splits
+    const parts=[]; let cur='';
+    for(const s of segs){
+      if(cur && (cur+s).length>460){ parts.push(cur.trim()); cur=s; }
+      else cur+=s;
+    }
+    if(cur.trim()) parts.push(cur.trim());
+    return parts.length?parts:[t];
+  }
+  function ttsFetch(text){
     return fetch('/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
-      .then(r=>r.ok?r.blob():null).catch(()=>null).then(b=>{ if(!b) return speakBrowser(text);   // no ElevenLabs → browser voice
-        orbSpeak=true; renderOrb(); jhue('speak_start');
-        if(!wakeOn) wakePause(true);                     // push-to-talk: nothing to barge into
-        spoken=String(text); speaking=true;              // hands-free: stay live so "Jetty, …" can cut in
-        const a=new Audio(URL.createObjectURL(b)); curAudio=a;
-        reactStart(a);                                   // analyser drives the core glow (graceful fallback if unavailable)
-        a.play().catch(()=>{});
-        const done=new Promise(res=>{ a.onended=res; a.onerror=res; });
-        const cap=new Promise(res=>setTimeout(res, Math.min(22000, 1800+String(text).length*85)));
-        return Promise.race([done,cap]).then(()=>{ try{a.pause();}catch(e){} if(curAudio===a) curAudio=null;
-          reactStop(); orbSpeak=false; renderOrb(); speaking=false; spoken=''; jhue('speak_end');
-          if(!wakeOn) wakePause(false); });
-      });
+      .then(r=>r.ok?r.blob():null).catch(()=>null);
+  }
+  function playTts(b, text){
+    if(!b) return speakBrowser(text);                // no ElevenLabs → browser voice
+    orbSpeak=true; renderOrb(); jhue('speak_start');
+    if(!wakeOn) wakePause(true);                     // push-to-talk: nothing to barge into
+    spoken=String(text); speaking=true;              // hands-free: stay live so "Jetty, …" can cut in
+    const a=new Audio(URL.createObjectURL(b)); curAudio=a;
+    reactStart(a);                                   // analyser drives the core glow (graceful fallback if unavailable)
+    a.play().catch(()=>{});
+    const done=new Promise(res=>{ a.onended=res; a.onerror=res; });
+    // hang WATCHDOG, not a length cap: finish this CHUNK only when playback makes no progress for
+    // ~6s with no VAD hold — and the queue then simply moves to the next chunk.
+    let wd=0;
+    const cap=new Promise(res=>{ let last=-1, lastMove=Date.now();
+      wd=setInterval(()=>{                     // wall-clock stall check — tick THROTTLING in a
+        const t=a.currentTime, held=vad.hold && vad.hold.a===a;   // hidden tab can't stretch it
+        if(held || t!==last) lastMove=Date.now();
+        else if(Date.now()-lastMove>6500){ console.debug('[speak] stall watchdog fired at t='+a.currentTime.toFixed(1)+'s — skipping to next chunk'); res(); }
+        last=t;
+      }, 1000); });
+    return Promise.race([done,cap]).then(()=>{ clearInterval(wd); try{a.pause();}catch(e){} if(curAudio===a) curAudio=null;
+      reactStop(); orbSpeak=false; renderOrb(); speaking=false; spoken=''; jhue('speak_end');
+      vadHoldClear();                              // this chunk is over — a pending VAD hold must never resume it
+      if(!wakeOn) wakePause(false); });
+  }
+  function speak(text){
+    text=String(text==null?'':text);
+    // never READ a URL aloud — the screen has it as a live link; the voice just points there
+    URL_RE.lastIndex=0;
+    const links=text.match(URL_RE)||[];
+    if(links.length){
+      lastLinks=links.map(u=>(/^https?:/i.test(u)?'':'https://')+u);
+      text=text.replace(URL_RE,'').replace(/[ \t]{2,}/g,' ');
+      text+=links.length>1
+        ? ` The links are on your screen, sir — say "open it" for the first, or "open link two".`
+        : ' The link is on your screen, sir — say "open it" and I shall bring it up.';
+    }
+    const parts=splitSpeech(text);
+    const seq=speakSeq;                              // the moment anything cutVoice()s, this goes stale
+    if(parts.length===1) return ttsFetch(parts[0]).then(b=>playTts(b, parts[0]));
+    console.debug('[speak] long read — '+parts.length+' chunks queued');
+    return (async()=>{
+      let pending=ttsFetch(parts[0]);
+      for(let i=0;i<parts.length;i++){
+        const b=await pending;
+        if(i+1<parts.length) pending=ttsFetch(parts[i+1]);   // prefetch: the queue stays gapless
+        if(speakSeq!==seq) return;                   // interrupted → the rest of the report stays unsaid
+        console.debug('[speak] chunk '+(i+1)+'/'+parts.length);
+        await playTts(b, parts[i]);
+        if(speakSeq!==seq) return;
+      }
+    })();
   }
   // ---- browser voice (the default, free, no-key Jetty voice) ----
   let _voices=[];
@@ -863,6 +1022,8 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   if(window.speechSynthesis){ loadVoices(); try{ speechSynthesis.onvoiceschanged=loadVoices; }catch(e){} }
   function pickVoice(){
     if(!_voices.length) loadVoices();
+    const L=String(window.__jettyLang||'').split('-')[0].toLowerCase();   // multilingual mode: match the active tongue
+    if(L && L!=='en'){ const m=_voices.find(v=>v.lang&&v.lang.toLowerCase().startsWith(L)); if(m) return m; }
     return _voices.find(v=>/en-GB/i.test(v.lang)&&/(daniel|arthur|george|oliver|male)/i.test(v.name))   // a British butler if we can
         || _voices.find(v=>/en-GB/i.test(v.lang))
         || _voices.find(v=>/^en[-_]/i.test(v.lang)) || _voices[0] || null;
@@ -871,19 +1032,29 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
     return new Promise(res=>{
       const ss=window.speechSynthesis;
       if(!ss){ return res(); }                            // no speech API → silent, but never hangs the queue
-      try{ ss.cancel();
+      try{ ss.cancel(); try{ ss.resume(); }catch(e){}     // clear any stale VAD pause before queueing
         const u=new SpeechSynthesisUtterance(speakable(stripTags(String(text))));   // tags are for the v3 engine only
         const v=pickVoice(); if(v) u.voice=v;
         u.rate=1.02; u.pitch=0.95;
         orbSpeak=true; renderOrb(); jhue('speak_start');
         if(!wakeOn) wakePause(true);
         spoken=String(text); speaking=true;
-        const t0=Date.now(); const iv=setInterval(()=>{ if(orb) orb.style.setProperty('--beat',(0.26+0.46*Math.abs(Math.sin((Date.now()-t0)/130))).toFixed(3)); },80);  // synthetic glow (no analyser on this path)
-        let done=false;
-        const fin=()=>{ if(done) return; done=true; clearInterval(iv); if(orb) orb.style.setProperty('--beat','0');
-          orbSpeak=false; renderOrb(); speaking=false; spoken=''; jhue('speak_end'); if(!wakeOn) wakePause(false); res(); };
+        const t0=Date.now(); const iv=setInterval(()=>{ const bv=0.26+0.46*Math.abs(Math.sin((Date.now()-t0)/130)); if(orb) orb.style.setProperty('--beat',bv.toFixed(3)); window.__voiceLevel=bv; },80);  // synthetic glow (no analyser on this path)
+        let done=false, wd=0;
+        const fin=()=>{ if(done) return; done=true; clearInterval(iv); clearInterval(wd); if(orb) orb.style.setProperty('--beat','0'); window.__voiceLevel=0;
+          orbSpeak=false; renderOrb(); speaking=false; spoken=''; jhue('speak_end'); vadHoldClear(); if(!wakeOn) wakePause(false); res(); };
         u.onend=fin; u.onerror=fin;
-        setTimeout(fin, Math.min(22000, 1800+String(text).length*85));   // same hard ceiling as the ElevenLabs path
+        // no length ceiling (the old 22s cap cut long answers off a third in). Instead: Chrome
+        // silently kills utterances ~15s in unless nudged with pause/resume, and a stall watchdog
+        // (word-boundary heartbeat) releases the queue only if speech is genuinely dead.
+        let lastBeat=Date.now(), sawB=false;
+        u.onboundary=()=>{ sawB=true; lastBeat=Date.now(); };
+        wd=setInterval(()=>{
+          if(vad.hold && !vad.hold.a){ lastBeat=Date.now(); return; }   // a VAD pause isn't a stall — and don't resume a held sentence
+          try{ ss.pause(); ss.resume(); }catch(e){}                     // the anti-15s-death nudge
+          if(sawB ? (Date.now()-lastBeat>20000)
+                  : (Date.now()-t0>Math.max(12000, 1800+String(text).length*110))) fin();
+        }, 10000);
         ss.speak(u);
       }catch(e){ res(); }
     });
@@ -967,7 +1138,7 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   // /chat (which stays offline by design so normal replies keep their ~2-3s snap).
   async function doResearch(q){
     status.textContent='● researching…'; ans.style.display='none';
-    const ack=delayedAck('web', 900);                 // searches take 10-30s — say so early
+    const ack=progressAck(900, 'web');                // searches take 10-30s — heartbeat, not one ack then silence
     const d=await post('/research',{question:q, session:SID}, 150000);
     await ack.settle(); status.textContent='';
     if(d.error){ showLine(d.error); return speak(d.error); }
@@ -975,6 +1146,36 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
     lastNote=d.answer+srcs; showLine(lastNote);       // sources on screen; only the answer is spoken
     inboxPoll();                                      // the 🌐 "What I found" card slides in top-right, and stays
     await speak(d.answer);
+  }
+  // pocket status: "Jetty, pocket code" / "pair my phone" — pairing + status for the Telegram bridge
+  async function doPocket(){
+    const d=await fetch('/api/pocket').then(r=>r.json()).catch(()=>null);
+    let l;
+    if(!d) l="The pocket bay isn't answering, sir.";
+    else if(!d.configured) l="No pocket line yet, sir — message BotFather on Telegram, make a bot in two minutes, and paste its token under telegram in config.json. Then I travel.";
+    else if(d.code) l="Your pairing code is "+d.code.split('').join(', ')+", sir. Text it to the bot and your phone joins the brain.";
+    else l="Your phone is paired, sir"+(d.who&&d.who.length?" — "+d.who.join(", ")+".":".")+" Text me anywhere; it all lands in the graph.";
+    showLine(l); await speak(l);
+  }
+  // "research THIS" while sharing: the screenshot rides along so the web search knows what
+  // "this" is, and the answer comes back as a spoken REPORT — the conversation stays free
+  // while the search runs, and Jetty waits for a quiet moment before reading it out.
+  function whenQuiet(fn,t){ if((busy||speaking)&&(t||0)<360) setTimeout(()=>whenQuiet(fn,(t||0)+1),500); else fn(); }
+  async function doResearchScreen(q){
+    const img=await grabFrame();
+    if(!img) return doResearch(q);                    // the share died mid-ask → plain research
+    const l="Very good, sir — let me do some digging on that. I shall report back the moment I have the details.";
+    showLine(l); await speak(l);
+    status.textContent='● researching the screen…';
+    post('/research',{question:q, session:SID, image:img}, 150000).then(d=>{
+      status.textContent='';
+      whenQuiet(()=>{
+        if(d.error){ showLine(d.error); return speak(d.error); }
+        const srcs=(d.sources&&d.sources.length)?'\n\nSources: '+d.sources.map(s=>s.title||s.url).join('  ·  '):'';
+        lastNote=d.answer+srcs; showLine(lastNote); inboxPoll();
+        speak("Back with the findings, sir. "+d.answer);
+      });
+    }).catch(()=>{ status.textContent=''; });
   }
 
   // ---- intents ----
@@ -996,6 +1197,10 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   const ENDCONV=/^\s*(that'?s all|that will be all|stop listening|go to sleep|dismiss(?:ed)?|stand down|we'?re done|i'?m done|thank you,? jetty|thanks,? jetty|goodbye|good night)\b/i;
   // ask Jetty to read the last note he pulled up out loud
   const READ=/^\s*(?:yes,? )?(?:please )?(?:go ahead and |could you |can you )?(read(?: it| that| this| them| the note| aloud| out loud)?(?: out)?(?: loud)?(?: to me)?|out loud)\s*[.!,]*$/i;
+  // read-back preference: tool/calendar answers are SPOKEN by default; "you don't have to read it,
+  // I'll read it myself" flips answers to screen-only until he asks for voice again
+  const RDOFF=/\b(?:(?:you )?(?:don'?t|do not) (?:have to|need to) read|no need to read|stop reading (?:things?|answers?|it|everything) (?:back|out loud|aloud)|i(?:'|’)?ll read (?:it|that|them) myself)\b/i;
+  const RDON=/\b(?:read (?:it|things?|answers?|everything) (?:back|out loud|aloud) (?:again|from now on)|start reading (?:things?|answers?) (?:back|out loud|aloud)|go back to reading (?:things )?(?:out loud|aloud)|turn (?:the )?read ?-?backs? (?:back )?on)\b/i;
   // ---- V4 commands ----
   const MEMSELF=/^\s*(remember (?:that )?(?:about )?(?:me\b|i'?m\b|i am\b|i (?:prefer|like|love|hate|always|never|usually|generally|only|tend|use|work|live|run|own|drive|speak)\b)|note to self|from now on|for (?:future|the) (?:reference|record)|keep in mind (?:that )?i\b|remember about me)\b/i;
   const PULSE=/^\s*(anything (?:new|important|urgent|i should know|i need to know)|any (?:updates?|news|alerts?)|what'?s new|pulse check|catch me up(?: on anything)?)\b/i;
@@ -1010,6 +1215,11 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   // ---- mic sensitivity: strict = only ever respond to the wake word (no follow-up window)
   const STRICTOFF=/^\s*(?:strict (?:mode )?off|relaxed mode|conversational mode|(?:you can )?listen for follow.?ups?(?: again)?|be less strict)\s*[.!?]*$/i;
   const STRICTON=/^\s*(?:strict mode(?: on)?|require your name|only (?:respond|answer|listen) (?:to|when) (?:i say )?(?:your name|jetty)|(?:be less|stop being(?: so)?) (?:sensitive|jumpy|trigger.?happy)|stop (?:answering|responding) (?:to|on) (?:noise|nothing|everything)|no more follow.?ups?)\s*[.!?]*$/i;
+  const POCKETQ=/^\s*(?:what(?:'?s| is) (?:the |my )?pocket code|pocket code|pair (?:my |the )?phone|connect (?:my |the )?phone|is my phone (?:paired|connected)|phone status)\s*[.!?]*$/i;
+  const OPENLINK=/^\s*(?:yes,? )?open (?:it|that|them|the link|(?:link |number )?(one|two|three|four|five|1|2|3|4|5))(?: in a new tab)?\s*[.!?]*$/i;
+  const LINKN={one:0,'1':0,two:1,'2':1,three:2,'3':2,four:3,'4':3,five:4,'5':4};
+  const VADOFF=/^\s*(?:disable|turn off|stop|no more)\s+(?:the\s+)?(?:instant\s+|voice\s+)?interrupt(?:ions?|ing)?\s*[.!?]*$|^\s*(?:finish|complete) your sentences\s*[.!?]*$/i;
+  const VADON=/^\s*(?:enable|turn on|allow|arm)\s+(?:the\s+)?(?:instant\s+|voice\s+)?interrupt(?:ions?|ing)?\s*[.!?]*$|^\s*let me (?:interrupt|cut) you(?: off)?\s*[.!?]*$/i;
   // ---- time machine (episodic recall) ----
   const RECALL=/^\s*(what (?:was|were) (?:i|we) (?:doing|working on|up to)|what did (?:i|we) (?:do|work on|discuss|get up to)|when did i (?:first )?(?:mention|say|start|talk about|work on|build)|remind me what (?:i|we) (?:did|worked on)|what happened (?:on|last|yesterday|this)|take me back to)\b/i;
   // ---- voice hot-swap + live-engine picker ----
@@ -1047,7 +1257,7 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
     if((m=t.match(/^(?:set )?brightness (?:to )?(\d{1,3})/)))return{action:'brightness',value:m[1]};
     if((m=t.match(/^(?:turn )?night ?shift (on|off)$/)))return{action:'nightshift',value:m[1]};
     if((m=t.match(/^(evening|cinema|focus|bright|morning) mode$/)))return{action:'scene',value:m[1]};
-    if((m=t.match(/^(?:open|launch|start) (.+)$/))&&!/\b(the )?(pod bay|note|node|inbox)\b/.test(m[1]))return{action:'launch',value:m[1]};
+    if((m=t.match(/^(?:open|launch|start) (.+)$/))&&!/\b(the )?(pod bay|note|node|inbox|project|folder|wiki|page)\b/.test(m[1]))return{action:'launch',value:m[1]};   // creations go to the brain, not the Dock
     if((m=t.match(/^(?:quit|close) (.+)$/))&&!/\b(everything|all|the (?:card|note|inbox))\b/.test(m[1]))return{action:'quit',value:m[1]};
     if((m=t.match(/^clean slate(?: except (.+))?$|^(?:quit|close) everything(?: except (.+))?$/)))return{action:'clean_slate',value:(m[1]||m[2]||'')};
     if((m=t.match(/^(?:put |move |snap )?(.+?) (?:on the |to the )?(left|right|top|bottom|center|top.left|top.right|bottom.left|bottom.right)(?: half| side)?$/))&&/chrome|safari|notes|finder|terminal|code|slack|figma|obsidian|arc|spotify|mail|messages|preview/i.test(m[1]))return{action:'window',value:m[1]+' '+m[2].replace(/\s/g,'-')};
@@ -1097,9 +1307,10 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
     if(d.error){ status.textContent=d.error; return; }
     status.textContent='';
     if(d.model) setBrainBadge(d.model, d.default);  // the server may have executed a brain swap
-    if(d.new_node){                                 // the server captured a note — birth it in the graph
+    if(d.new_node){                                 // the server captured a note/project — birth it in the graph
       const tn=d.new_node.related?bestNode(d.new_node.related):null;
-      if(window.__os&&window.__os.addNote) window.__os.addNote(d.new_node.label, d.new_node.text, tn?tn.id:null);
+      if(window.__os&&window.__os.addNote) window.__os.addNote(d.new_node.label, d.new_node.text, tn?tn.id:null, d.new_node.group);
+      if(d.new_node.kind) inboxPoll();              // CREATE also raised a 📁 card
     }
     if(d.reminder_set){ inboxPoll(); refreshTasks(); }  // slide the ⏰ card in right away
     if(d.nodes && d.nodes.length){                 // a note was pulled up — show it on screen, don't read it aloud
@@ -1197,9 +1408,10 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   }
   async function brief(){
     status.textContent='● gathering your day…';
-    const ack=delayedAck('fetch', 250);                 // briefings are never instant — speak up right away
+    const ack=progressAck(250, 'fetch');                // briefings are never instant — heartbeat until it lands
     const d=await post('/briefing',{}, 240000); await ack.settle(); status.textContent='';
-    if(d.error){ showLine(d.error); return speak("I can't brief you just now, sir."); } showLine(d.answer); await speak(d.answer);
+    if(d.error){ showLine(d.error); return speak("I can't brief you just now, sir."); }
+    lastNote=d.answer; showLine(d.answer); await speak(d.answer);
   }
   async function edit(target,text){
     status.textContent='● updating…'; const d=await post('/edit',{target,text}); status.textContent='';
@@ -1209,7 +1421,7 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   }
   async function runAgent(task){
     status.textContent='● on it…';
-    const ack=delayedAck('agent', 250);
+    const ack=progressAck(250, 'agent');
     const d=await post('/agent',{task, session:SID}, 240000); await ack.settle(); status.textContent='';
     if(d.error){ showLine(d.error); return speak("That didn't go to plan, sir."); }
     if(d.needs_confirm && d.pending_id){
@@ -1235,14 +1447,14 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   }
   async function doPulse(){
     status.textContent='● scanning…';
-    const ack=delayedAck('look', 300);
+    const ack=progressAck(300, 'look');
     const d=await post('/pulse',{}, 240000); await ack.settle(); status.textContent='';
     if(d.error){ showLine(d.error); return speak(d.error); }
-    lastNote=''; showLine(d.answer); await speak(d.answer);
+    lastNote=d.answer; showLine(d.answer); await speak(d.answer);
   }
   async function doInbox(){
     status.textContent='● reading your inbox…';
-    const ack=delayedAck('look', 300);
+    const ack=progressAck(300, 'look');
     const d=await post('/inbox',{}, 240000); await ack.settle(); status.textContent='';
     if(d.error){ showLine(d.error); return speak(d.error); }
     lastNote=d.answer; showLine(d.answer); await speak(d.answer);
@@ -1252,7 +1464,7 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   // "look at my screen" calls (ImageCapture.grabFrame is flaky / one-shot, so we don't use it).
   let screenStream=null, screenVid=null;
   function setScreenBtn(on){ if(!screenBtn) return;
-    screenBtn.style.background=on?'rgba(56,189,248,.28)':'rgba(52,211,153,.08)'; screenBtn.style.color=on?'#7af0ff':'#5a6b62'; screenBtn.dataset.on=on?'1':''; }
+    screenBtn.style.background=on?'#1d4a5e':'#212b30'; screenBtn.style.color=on?'#7af0ff':'#5a6b62'; screenBtn.dataset.on=on?'1':''; }
   function screenLive(){ return !!(screenStream && screenStream.active && screenVid); }
   async function startScreen(){
     try{
@@ -1261,6 +1473,8 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
       screenVid.srcObject=screenStream; await screenVid.play().catch(()=>{});
       screenStream.getVideoTracks()[0].addEventListener('ended', stopScreen);
       setScreenBtn(true);
+      try{ post('/presence',{cmd:'show'}); post('/presence',{cmd:'state:idle'}); }catch(_){}   // Jetty's orb rides the share
+      try{ window.__jettyShare=true; }catch(_){}
       for(let i=0;i<25 && !screenVid.videoWidth;i++) await new Promise(r=>setTimeout(r,80));   // wait for the first frame
       return true;
     }catch(e){ stopScreen(); return false; }
@@ -1269,6 +1483,15 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
     if(screenStream){ screenStream.getTracks().forEach(t=>{try{t.stop();}catch(e){}}); }
     if(screenVid){ try{screenVid.pause();}catch(e){} screenVid.srcObject=null; }
     screenStream=null; screenVid=null; setScreenBtn(false);
+    if(shareAutoWake){ shareAutoWake=false; if(wakeOn) wake.click(); }     // ears were share-borrowed — give them back
+    else if(wakeOn && awaitingCmd){ clearTimeout(wakeTimer);               // the share's open window closes normally now
+      wakeTimer=setTimeout(()=>{ awaitingCmd=false; renderOrb(); if(wakeOn) status.textContent=IDLE; }, FOLLOWUP_MS); }
+    try{ window.__jettyShare=false; if(!window.__handsActive) post('/presence',{cmd:'hide'}); }catch(_){}  // orb leaves with the share (unless driving)
+    if(liveKind==='openai' && liveDC){                 // tell the live model the link is gone so it won't pretend
+      try{ liveDC.send(JSON.stringify({type:'conversation.item.create',
+        item:{type:'message',role:'user',content:[{type:'input_text',
+          text:'(system note: the screen link is now CLOSED — look_at_screen will report closed until it is reopened)'}]}})); }catch(_){}
+    }
   }
   async function grabFrame(){
     if(!screenLive()) return null;
@@ -1282,21 +1505,45 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
       return data.length>3000 ? data.split(',')[1] : null;     // reject a blank/black frame
     }catch(e){ return null; }
   }
+  // Full data-URL frame for the LIVE call — stepped down until under the WebRTC data-channel ~256KB cap.
+  async function grabFrameForLive(){
+    if(!screenLive()) return null;
+    for(let i=0;i<15 && (!screenVid.videoWidth || screenVid.readyState<2);i++) await new Promise(r=>setTimeout(r,80));
+    const sw=screenVid.videoWidth, sh=screenVid.videoHeight; if(!sw||!sh) return null;
+    for(const step of [[1024,0.7],[800,0.55],[640,0.45]]){
+      try{
+        const w=Math.min(step[0],sw), h=Math.round(sh*(w/sw));
+        const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+        cv.getContext('2d').drawImage(screenVid,0,0,w,h);
+        const url=cv.toDataURL('image/jpeg',step[1]);
+        if(url.length<230000) return url;
+      }catch(e){ return null; }
+    }
+    return null;
+  }
   if(screenBtn) screenBtn.addEventListener('click', ()=>{
     audioCtx();
     if(screenStream){ stopScreen(); const l="Screen sharing off, sir."; showLine(l); speak(l); return; }
-    startScreen().then(ok=>{ const l=ok?"I can see your screen now, sir — ask me to look anytime."
-      :"Screen-share was declined, sir."; showLine(l); speak(l); });
+    startScreen().then(ok=>{
+      let l = ok ? "I can see your screen now, sir — ask me to look anytime."
+                 : "Screen-share was declined, sir.";
+      if(ok && SR && !liveKind){
+        if(!wakeOn){ shareAutoWake=true; wakeQuiet=true; wake.click(); }   // sharing without ears is half a Jetty
+        if(wakeOn){ l = "I can see your screen and I'm listening, sir — just talk, and feel free to cut me off.";
+          armFollowup(); }                                                 // open conversation for the whole share
+      }
+      showLine(l); speak(l);
+    });
   });
 
   // ---- LIVE duplex conversation — two engines, one 📡 button ----
   // elevenlabs: EL Agents w/ custom-LLM (the 4722 brain — pure Claude).  openai: GPT Realtime
   // over WebRTC; GPT is ears+mouth, and an ask_jetty TOOL routes knowledge back to this server
   // so Claude + the vault stay the brain either way. Pick with "use the realtime/elevenlabs engine".
-  let liveConv=null, livePC=null, liveMic=null, liveKind='', liveNodesIv=null, liveLastTs=0;
+  let liveConv=null, livePC=null, liveMic=null, liveKind='', liveNodesIv=null, liveLastTs=0, liveDC=null;
   function liveOn(kind){
     liveKind=kind;
-    liveBtn.dataset.on='1'; liveBtn.style.background='rgba(52,211,153,.3)'; liveBtn.style.color='#34d399';
+    liveBtn.dataset.on='1'; liveBtn.style.background='#2b5847'; liveBtn.style.color='#34d399';
     status.textContent='● LIVE ('+(kind==='openai'?'GPT Realtime':'ElevenLabs')+') — talk naturally, interrupt anytime';
     liveLastTs=Math.floor(Date.now()/1000);
     liveNodesIv=setInterval(async()=>{                  // node side-channel → the graph still flies
@@ -1313,7 +1560,7 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
       showLine(l); return speak(l);
     }
     if(wakeOn) wakePause(true);                         // one listener at a time — the session owns the mic
-    if(curAudio){ try{curAudio.pause();}catch(e){} curAudio=null; }
+    cutVoice();                                         // kills the CURRENT chunk AND the queued rest of a long read
     if(st.provider==='openai') return startRealtime();
     return startEleven();
   }
@@ -1343,7 +1590,7 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
       liveMic.getTracks().forEach(t=>livePC.addTrack(t, liveMic));
       const spk=new Audio(); spk.autoplay=true;
       livePC.ontrack=e=>{ spk.srcObject=e.streams[0]; };
-      const dc=livePC.createDataChannel('oai-events');
+      const dc=livePC.createDataChannel('oai-events'); liveDC=dc;
       dc.onmessage=ev=>{ try{ handleRT(JSON.parse(ev.data), dc); }catch(e){} };
       const offer=await livePC.createOffer(); await livePC.setLocalDescription(offer);
       const resp=await fetch(s.sdp_url||('https://api.openai.com/v1/realtime?model='+encodeURIComponent(s.model)),{
@@ -1368,9 +1615,28 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
         if(d.nodes&&d.nodes.length) flyTo(d.nodes);
         if(d.model) setBrainBadge(d.model, d.default);            // swaps work mid-call
         if(d.new_node){ const tn=d.new_node.related?bestNode(d.new_node.related):null;
-          if(window.__os&&window.__os.addNote) window.__os.addNote(d.new_node.label, d.new_node.text, tn?tn.id:null); }
+          if(window.__os&&window.__os.addNote) window.__os.addNote(d.new_node.label, d.new_node.text, tn?tn.id:null, d.new_node.group); }
         if(d.reminder_set){ inboxPoll(); refreshTasks(); }        // ⏰ card slides in mid-call too
       }catch(e){}
+      dc.send(JSON.stringify({type:'conversation.item.create',
+        item:{type:'function_call_output', call_id:ev.call_id, output:out}}));
+      dc.send(JSON.stringify({type:'response.create'}));
+    }
+    else if(t==='response.function_call_arguments.done' && ev.name==='look_at_screen'){
+      let out; const img=await grabFrameForLive();
+      if(!img){
+        showLine('🖥 Tap the screen button to share, sir — then ask again.');
+        out='The screen link is CLOSED — no screenshot is available. Tell the user to tap the '
+          +'screen-share button (the monitor icon 🖥) to share their screen, then ask again. Do '
+          +'NOT describe or guess at their screen.';
+      } else {
+        showLine('🖥 fresh frame sent into the call');
+        dc.send(JSON.stringify({type:'conversation.item.create',
+          item:{type:'message', role:'user', content:[{type:'input_image', image_url:img}]}}));
+        out='A fresh screenshot of the user\'s screen RIGHT NOW is attached as the image above. '
+          +'Answer only from what you actually see in it — name the app, window title, or visible '
+          +'content specifically. It may have changed since any earlier screenshot.';
+      }
       dc.send(JSON.stringify({type:'conversation.item.create',
         item:{type:'function_call_output', call_id:ev.call_id, output:out}}));
       dc.send(JSON.stringify({type:'response.create'}));
@@ -1382,8 +1648,8 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
     if(liveConv){ const c=liveConv; liveConv=null; try{ await c.endSession(); }catch(e){} }
     if(liveMic){ try{ liveMic.getTracks().forEach(t=>t.stop()); }catch(e){} liveMic=null; }
     if(livePC){ try{ livePC.close(); }catch(e){} livePC=null; }
-    liveKind='';
-    liveBtn.dataset.on=''; liveBtn.style.background='rgba(52,211,153,.08)'; liveBtn.style.color='#5a6b62';
+    liveDC=null; liveKind='';
+    liveBtn.dataset.on=''; liveBtn.style.background='#212b30'; liveBtn.style.color='#5a6b62';
     orbSpeak=false; renderOrb(); jhue('speak_end');
     if(wakeOn) wakePause(false);
     if(!silent){ const l='Line closed, sir.'; showLine(l); speak(l); } else status.textContent='';
@@ -1417,6 +1683,7 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   }
   // ---- model hot-swap: the brain chip under the reactor + the swap itself ----
   function setBrainBadge(model, isDefault){
+    try{ window.__fx&&window.__fx.brainTheme&&window.__fx.brainTheme(model, isDefault); }catch(_){}
     const chip=$('j-brain-chip'); if(!chip) return;
     const short=String(model||'').split('/').pop().replace(/^claude-/,'');   // "anthropic/claude-x" → "x"
     chip.textContent='◆ '+short+(isDefault?'':' ⚡');
@@ -1559,7 +1826,7 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   // ---- proactive / scheduled briefings ----
   function setBell(on){
     bell.dataset.on=on?'1':'';
-    bell.style.background=on?'rgba(52,211,153,.3)':'rgba(52,211,153,.08)';
+    bell.style.background=on?'#2b5847':'#212b30';
     bell.style.color=on?'#34d399':'#5a6b62';
   }
   async function setProactive(on,announce){
@@ -1587,18 +1854,35 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
 
   async function ask(q){
     q=(q||'').trim(); if(busy||!q) return; busy=true; orbThink=true; renderOrb();
+    try{ window.__fx&&window.__fx.think&&window.__fx.think(true); }catch(_){}
     let keepConvo=true;
     try{
-      let ed, od;
+      let ed, od, rt;
       if(wakeOn && ENDCONV.test(q)){ keepConvo=false; awaitingCmd=false; clearTimeout(wakeTimer);
         const l='Very good, sir. Say "Jetty" when you need me.'; showLine(l); await speak(l); }
+      else if(progressLive && HUSH.test(q)){ hushProgress();           // "stop updating me" — mute the heartbeat, task runs on
+        const l="Very good, sir — I'll carry on quietly and report the moment it's done."; showLine(l); await speak(l); }
+      else if(RDOFF.test(q)){ localStorage.setItem('jetty-readback','0');
+        const l="Very good, sir — answers will land on the screen; say 'read it out loud' whenever you want my voice."; showLine(l); await speak(l); }
+      else if(RDON.test(q)){ localStorage.setItem('jetty-readback','1');
+        const l="Voice read-backs are back on, sir."; showLine(l); await speak(l); }
       else if(pendingCall && CONFIRM.test(q)){ const t=pendingCall; pendingCall=null; await placeCall(t); }
       else if(pendingOs && CONFIRM.test(q)) await confirmOs();
       else if(pending && CONFIRM.test(q)) await confirmAgent();
       else if((pending||pendingCall||pendingOs) && DENY.test(q)){ pending=null; pendingCall=null; pendingOs=null; const l="Stood down, sir."; showLine(l); await speak(l); }
+      else if(lastLinks.length && OPENLINK.test(q)){                           // "open it" / "open link two"
+        const m=q.match(OPENLINK), idx=Math.min(LINKN[(m[1]||'').toLowerCase()]||0, lastLinks.length-1);
+        const url=lastLinks[idx];
+        let w=null; try{ w=window.open(url,'_blank'); }catch(e){}
+        if(w){ const l=lastLinks.length>1?`Opening link ${idx+1}, sir.`:'Opening it now, sir.'; showLine(l); await speak(l); }
+        else { showLine(url);                                                  // linkified + clickable — one tap
+          await speak("Your browser insists on a click for pop-ups, sir — the link is highlighted on screen."); }
+      }
       else if(lastNote && READ.test(q)){                                       // "read it out loud"
         const n=window.__os&&window.__os.focusNode; const t=(n&&n.p&&n.p.length>40)?n.p:lastNote;
         showLine(t); await speak(t); }
+      else if(READ.test(q)){                                                   // nothing staged — say so, don't quip "I can't"
+        const l="Nothing pulled up to read just now, sir — ask me for something first."; showLine(l); await speak(l); }
       else if(MEMSELF.test(q)) await memorize(q.replace(MEMSELF,'').replace(/^[\s:,-]+/,'').trim()||q);
       else if(ADDNODE.test(q)){ const m=q.match(ADDNODE); await addNode((m[1]||'').trim(), (m[2]||'').trim()); }
       else if(DRAW.test(q)) await doDraw();
@@ -1611,6 +1895,9 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
       else if(DND.test(q)) await setDnd(true);
       else if(STRICTOFF.test(q)) await setStrict(false);
       else if(STRICTON.test(q)) await setStrict(true);
+      else if(VADOFF.test(q)) await setVadOn(false);
+      else if(VADON.test(q)) await setVadOn(true);
+      else if(POCKETQ.test(q)) await doPocket();
       else if(QUEUE.test(q)) await readQueue();
       else if(RECALL.test(q)) await doRecall(q);
       else if(VOICELIST.test(q)) await listVoices();
@@ -1623,6 +1910,7 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
       else if(DIAL.test(q)){ const m=q.match(DIAL); await setDialH(m[1].toLowerCase(), m[2]); }
       else if(SKINSW.test(q)){ const m=q.match(SKINSW); await setSkinH((m[1]||m[2]||'').toLowerCase()); }
       else if(CANDID.test(q)) await doCandid(q);
+      else if((rt=(window.__jettyRoutes||[]).find(r=>{try{return r.re.test(q);}catch(_){return false;}}))) await rt.handler(q, q.match(rt.re));   // fx.js / missions.js voice routes
       else if((od=parseOs(q))) await doOs(od);
       else if(ORGANIZE.test(q)) await doOrganize(q.match(ORGANIZE)[1]);
       else if(RENSHOTS.test(q)) await doRenameShots();
@@ -1633,6 +1921,9 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
       else if(PULSE.test(q)) await doPulse();
       else if(BRIEF.test(q)) await brief();
       else if(INBOX.test(q)) await doInbox();
+      else if(screenLive() && (RESEARCH.test(q) || (/\b(?:find|dig|research|check)\b/i.test(q) && /\bonline\b|\bon the (?:web|internet)\b/i.test(q)))
+              && !/\b(vidiq|semrush|(?:my|the|your) (?:brain|notes?|graph|vault|calendar|schedule|inbox|e-?mails?))\b/i.test(q))
+        await doResearchScreen(q);                      // "research this" mid-share: web search, grounded by the screen — must beat SEE's "this"
       else if(screenLive() && GUIDE.test(q)) await doGuide(q);
       else if(SEE.test(q) || (screenLive() && SEELOOSE.test(q))) await doSee(q);
       else if(CALL.test(q)) await prepCall(q);
@@ -1643,10 +1934,18 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
       else await answer(q);
     }catch(e){ status.textContent='error: '+e.message; }
     busy=false; orbThink=false; renderOrb();
+    try{ window.__fx&&window.__fx.think&&window.__fx.think(false); }catch(_){}
     // hands-free: stay in the conversation so you can reply without saying "Jetty" again
     if(wakeOn && keepConvo) armFollowup(); else if(wakeOn) status.textContent=IDLE;
   }
   window.__jettyAsk=ask;
+  // bridge for the V5 add-on modules (fx.js visual layer + missions.js agent bay) — they register
+  // voice routes in window.__jettyRoutes [{re, handler}] and use these helpers to speak/post.
+  window.__jetty={ post, session:SID, ack:delayedAck, progress:progressAck, progressHush:hushProgress, speakable, showLine,
+    say:async t=>{ showLine(t); await speak(t); },
+    voice:t=>speak(t),                                   // speak WITHOUT touching the answer panel (screen-only read-back mode)
+    status:t=>{ try{ status.textContent=t; }catch(_){} },
+    setLastNote:t=>{ lastNote=String(t||''); } };
   input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ const q=input.value; input.value=''; ask(q);} });
 
   // ---- voice: push-to-talk mic + hands-free TWO-PHASE wake word (mutually exclusive) ----
@@ -1654,6 +1953,9 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
   // listens for your command. You can also say it in one breath: "Jetty, what is CiteVue".
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   let wakeRec=null, wakeOn=false, wakePaused=false, micActive=false, awaitingCmd=false, wakeTimer=null, speaking=false, spoken='';
+  // screen share = open conversation: sharing auto-engages listening (restored after), and the
+  // follow-up window stays hot for the whole share so he can just talk — no wake word needed.
+  let shareAutoWake=false, wakeQuiet=false;
   // strict mode: NEVER listen without the wake word (no follow-up window). Toggled by voice, persisted.
   let strict=false; try{ strict=localStorage.getItem('jetty-strict')==='1'; }catch(e){}
   // Chrome reports how sure it is of each finalized transcription — noise hallucinations score low.
@@ -1672,10 +1974,12 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
     const h=heard.toLowerCase().replace(/[^a-z' ]/g,' ').split(/\s+/).filter(w=>w.length>2);
     if(!h.length) return true;
     const s=spoken.toLowerCase(); return h.filter(w=>s.indexOf(w)>=0).length/h.length > 0.5; }
-  function whenIdle(fn,t){ if(busy&&(t||0)<25) setTimeout(()=>whenIdle(fn,(t||0)+1),200); else fn(); }
+  function whenIdle(fn,t){ if(busy&&(t||0)<150) setTimeout(()=>whenIdle(fn,(t||0)+1),200); else fn(); }   // wait up to 30s — chunked replies hold `busy` longer, and a barged command must NEVER be dropped (the old 5s cap silently ate "permission granted")
   let barged=0;                                  // ts of an interim voice-cut; the final result completes it
   function cutVoice(){                           // stop Jetty mid-sentence (audio only)
-    try{ if(window.speechSynthesis && speaking) speechSynthesis.cancel(); }catch(e){}
+    console.debug('[voice] cutVoice — speech killed, queued chunks dropped');
+    speakSeq++;                                  // a chunked read in progress abandons its remaining chunks
+    try{ if(window.speechSynthesis && speaking){ speechSynthesis.cancel(); speechSynthesis.resume(); } }catch(e){}   // resume(): Chrome keeps `paused` across cancel() — without it the synth goes mute for good
     if(curAudio){ const a=curAudio; curAudio=null; try{a.pause();}catch(e){} reactStop(); try{a.dispatchEvent(new Event('ended'));}catch(e){} }
     speaking=false;
   }
@@ -1683,37 +1987,156 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
     cutVoice(); barged=0; status.textContent='● yes, sir?';
     const cmd=txt.replace(BARGE_LEAD,'').replace(STRIP_WAKE,'').trim();
     if(cmd.length>1) whenIdle(()=>ask(cmd)); }
+  // ---------- instant interrupt (VAD) — ANY voice cuts Jetty mid-sentence, conference-app style ----------
+  // The wake recogniser transcribes in parallel but its first result takes ~1-2s; this RMS loop
+  // PAUSES playback ~80ms after voice onset (echoCancellation strips Jetty's own speaker audio).
+  // Real words then COMMIT the cut and run as the command; a cough/door-slam auto-RESUMES the
+  // sentence and raises the trigger threshold — so noise can no longer silence him for good.
+  const vad={stream:null, raf:0, base:0.008, hot:0, mult:2.6, deafUntil:0, hold:null,
+             worker:null, ticks:0, lastStep:0,
+             on:(function(){ try{ return localStorage.getItem('jetty-vad')!=='0'; }catch(e){ return true; } })()};
+  function vadStart(){
+    if(vad.stream || !vad.on || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}})
+      .then(s=>{
+        if(!wakeOn || !vad.on || vad.stream){ try{ s.getTracks().forEach(t=>t.stop()); }catch(e){} return; }   // toggled off, or a second click raced us
+        const c=audioCtx(); if(!c){ try{ s.getTracks().forEach(t=>t.stop()); }catch(e){} return; }
+        vad.stream=s; vad.mult=2.6;                        // fresh session, fresh sensitivity
+        const an=c.createAnalyser(); an.fftSize=512;
+        c.createMediaStreamSource(s).connect(an);          // analyser only — never to the speakers
+        const buf=new Uint8Array(an.fftSize);
+        const step=()=>{
+          if(!vad.stream) return;
+          const now=performance.now();
+          vad.ticks++; vad.lastStep=now;
+          an.getByteTimeDomainData(buf);
+          let sum=0; for(let i=0;i<buf.length;i++){ const dv=(buf[i]-128)/128; sum+=dv*dv; }
+          const rms=Math.sqrt(sum/buf.length), gate=Math.max(0.02, vad.base*vad.mult);
+          if(rms<gate){ vad.base=vad.base*0.95+rms*0.05; vad.hot=0; }   // learn the room while it's quiet
+          else if(wakeOn && speaking && !vad.hold && !micActive && !liveKind && now>vad.deafUntil){
+            if(++vad.hot>=5){ vad.hot=0; vadCut(); }       // ~5 hot ticks of sustained voice → pause him NOW
+          } else vad.hot=0;
+        };
+        // rAF drives the loop while the tab is visible — but it FREEZES when the tab is hidden or
+        // occluded, which is EXACTLY the screen-share case (the shared app sits on top of Chrome
+        // and the ear went deaf). A Web-Worker metronome (workers dodge Chrome's tab throttling —
+        // the fx.js scheduler learned this the hard way) steps whenever the rAF chain has stalled
+        // >38ms, for ANY reason. No visibility bookkeeping — the stall itself is the signal.
+        const pump=()=>{ if(!vad.stream) return; step(); vad.raf=requestAnimationFrame(pump); };
+        try{
+          const blob=new Blob(["setInterval(function(){postMessage(1)},40)"],{type:'text/javascript'});
+          vad.worker=new Worker(URL.createObjectURL(blob));
+          vad.worker.onmessage=()=>{ if(vad.stream && performance.now()-vad.lastStep>=38) step(); };
+        }catch(e){}
+        pump();
+      }).catch(()=>{});                                    // no second mic stream → barge phrases still work
+  }
+  function vadStop(){ cancelAnimationFrame(vad.raf); vad.raf=0;
+    if(vad.worker){ try{ vad.worker.terminate(); }catch(e){} vad.worker=null; }
+    if(vad.hold) vadResume();                              // never strand a paused sentence
+    try{ (vad.stream?vad.stream.getTracks():[]).forEach(t=>t.stop()); }catch(e){} vad.stream=null; }
+  function vadCut(){                                       // pause, don't kill — noise gets his voice back
+    console.debug('[vad] floor cut — playback paused, waiting for words');
+    const a=curAudio;
+    try{ if(a) a.pause(); }catch(e){}
+    try{ if(!a && window.speechSynthesis && speaking) speechSynthesis.pause(); }catch(e){}
+    vad.hold={a, t:setTimeout(vadResume, 3200)};
+    status.textContent='● yes, sir?';
+  }
+  function vadResume(){                                    // no words arrived — false alarm, finish the sentence
+    const h=vad.hold; if(!h) return; clearTimeout(h.t); vad.hold=null;
+    vad.mult=Math.min(6, vad.mult*1.5);                    // demand a louder signal next time
+    console.debug('[vad] false alarm — resuming speech, threshold ×'+vad.mult.toFixed(1));
+    try{ if(h.a){ if(curAudio===h.a) h.a.play(); }         // only replay a sentence we still own
+         else if(window.speechSynthesis && speaking) speechSynthesis.resume(); }catch(e){}
+    if(wakeOn && !speaking) status.textContent=IDLE; else if(speaking) status.textContent='';
+  }
+  function vadHoldClear(){                                 // speech ended while held — never resume an orphan
+    const h=vad.hold; if(!h) return; clearTimeout(h.t); vad.hold=null;
+    if(!h.a){ try{ speechSynthesis.cancel(); speechSynthesis.resume(); }catch(e){} }   // kill the paused utterance
+  }
+  function vadCommit(txt){                                 // real words — kill the sentence, run the command
+    console.debug('[vad] commit — interrupt ran as command:', txt);
+    const h=vad.hold; if(h) clearTimeout(h.t); vad.hold=null;
+    vad.mult=2.6; vad.deafUntil=performance.now()+1200;    // real interrupt: reset sensitivity, swallow the tail
+    cutVoice(); barged=0; clearTimeout(wakeTimer); awaitingCmd=false;
+    const cmd=txt.replace(BARGE_LEAD,'').replace(STRIP_WAKE,'').trim();
+    status.textContent='● yes, sir?';
+    if(cmd.length>1) whenIdle(()=>ask(cmd)); else if(wakeOn) status.textContent=IDLE;
+  }
+  async function setVadOn(on){ vad.on=on; try{ localStorage.setItem('jetty-vad', on?'1':'0'); }catch(e){}
+    if(on){ if(wakeOn) vadStart(); } else vadStop();
+    const l=on?"Instant interrupt armed, sir — speak over me and I shall stop mid-sentence."
+             :"As you wish, sir — I shall finish my sentences unless you say my name or 'stop'.";
+    showLine(l); await speak(l); }
+  window.__jettyVad=()=>({on:vad.on, live:!!vad.stream, hold:!!vad.hold, mult:vad.mult, base:vad.base, ticks:vad.ticks});
   function wakeStart(){ if(!SR||!wakeOn||wakePaused||micActive||!wakeRec) return; try{ wakeRec.start(); }catch(e){} }
   function wakePause(p){ wakePaused=p; if(p){ if(wakeRec){ try{wakeRec.stop();}catch(e){} } } else { wakeStart(); } }
   function armCmd(){ awaitingCmd=true; renderOrb(); status.textContent='● yes? — say your command';
+    try{ window.__fx&&window.__fx.wake&&window.__fx.wake(); }catch(_){}
     clearTimeout(wakeTimer); wakeTimer=setTimeout(()=>{ awaitingCmd=false; renderOrb(); if(wakeOn) status.textContent=IDLE; }, 10000); }
   // after a reply, keep listening for a follow-up (no wake word needed) for a short window
   const FOLLOWUP_MS=14000;
   function armFollowup(){ if(!SR||!wakeOn) return;
     if(strict){ awaitingCmd=false; renderOrb(); status.textContent=IDLE; return; }   // strict: name required, always
     awaitingCmd=true; renderOrb(); status.textContent='● listening, sir…';
-    clearTimeout(wakeTimer); wakeTimer=setTimeout(()=>{ awaitingCmd=false; renderOrb(); if(wakeOn) status.textContent=IDLE; }, FOLLOWUP_MS); }
+    clearTimeout(wakeTimer);
+    if(screenLive()) return;                    // sharing = open conversation: stay hot until the share ends
+    wakeTimer=setTimeout(()=>{ awaitingCmd=false; renderOrb(); if(wakeOn) status.textContent=IDLE; }, FOLLOWUP_MS); }
   if(SR){
-    function micErr(code){ return (code==='not-allowed'||code==='service-not-allowed') ? 'mic blocked — allow it for this site in Chrome'
+    function micErr(code){ return (code==='not-allowed'||code==='service-not-allowed') ? 'mic blocked, sir — click here to test & fix'
         : code==='no-speech' ? "didn't catch that, sir — tap 🎙 and speak"
         : code==='audio-capture' ? 'no microphone found, sir'
         : code==='network' ? 'speech service offline — check your connection'
         : 'mic: '+(code||'error'); }
+    // --- mic self-heal: a Chrome "Allow" doesn't restart a dead recogniser — this does. ---
+    let micWasBlocked=false, recovering=false;
+    async function micLevelProbe(ms){                    // capture for ~ms, return peak level 0..1 (-1 = capture failed)
+      let st; try{ st=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ return -1; }
+      try{
+        const ac=new (window.AudioContext||window.webkitAudioContext)();
+        const an=ac.createAnalyser(); an.fftSize=512;
+        ac.createMediaStreamSource(st).connect(an);
+        const buf=new Uint8Array(an.fftSize); let peak=0; const t0=Date.now();
+        await new Promise(res=>{(function tick(){ an.getByteTimeDomainData(buf);
+          for(let i=0;i<buf.length;i++){ const d=Math.abs(buf[i]-128)/128; if(d>peak) peak=d; }
+          (Date.now()-t0>ms) ? res() : setTimeout(tick,50); })();});
+        try{ac.close();}catch(e){}
+        return peak;
+      }catch(e){ return -1; }
+      finally{ try{st.getTracks().forEach(t=>t.stop());}catch(e){} }
+    }
+    async function micRecover(){                         // test the pipe end-to-end, say what's wrong, re-arm if healthy
+      if(recovering) return; recovering=true;
+      status.style.cursor=''; status.textContent='● testing the mic — say something, sir…';
+      const peak=await micLevelProbe(3500);
+      recovering=false;
+      if(peak<0){ status.style.cursor='pointer';
+        status.textContent='mic blocked by Chrome — padlock icon by the URL → allow Microphone (then I recover on my own)'; return; }
+      if(peak<0.02){ status.style.cursor='pointer';
+        status.textContent='mic is allowed but I hear SILENCE — macOS is muting Chrome or the wrong input is picked: System Settings → Privacy & Security → Microphone → enable Chrome, and chrome://settings/content/microphone → pick your real mic'; return; }
+      micWasBlocked=false; status.textContent='● mic healthy, sir';
+      if(!wakeOn) wake.click(); else { try{wakeRec&&wakeRec.start();}catch(e){} setTimeout(()=>{ if(wakeOn) status.textContent=IDLE; },1200); }
+    }
+    try{ navigator.permissions.query({name:'microphone'}).then(p=>{   // the moment Allow is clicked, heal without a reload
+      p.onchange=()=>{ if(p.state==='granted'&&micWasBlocked) micRecover(); }; });}catch(e){}
+    status.style.pointerEvents='auto';
+    status.addEventListener('click', ()=>{ if(/mic|silen|blocked/i.test(status.textContent)&&!recovering) micRecover(); });
     function startMic(){
       let r; try{ r=new SR(); }catch(e){ micActive=false; renderOrb(); wakePause(false); return; }
-      r.lang='en-US'; r.interimResults=false; r.maxAlternatives=1;
-      r.onstart=()=>{ mic.style.background='rgba(251,113,133,.25)'; mic.style.color='#fb7185'; status.textContent='● listening…'; renderOrb(); };
+      r.lang=window.__jettyLang||'en-US'; r.interimResults=false; r.maxAlternatives=1;
+      r.onstart=()=>{ mic.style.background='#5c3038'; mic.style.color='#fb7185'; status.textContent='● listening…'; renderOrb(); };
       r.onresult=e=>ask(e.results[0][0].transcript);
-      r.onerror=e=>{ status.textContent=micErr(e&&e.error); micActive=false; };
-      r.onend=()=>{ mic.style.background='rgba(52,211,153,.15)'; mic.style.color='#34d399';
+      r.onerror=e=>{ status.textContent=micErr(e&&e.error); micActive=false;
+        if(e&&(e.error==='not-allowed'||e.error==='service-not-allowed')){ micWasBlocked=true; status.style.cursor='pointer'; } };
+      r.onend=()=>{ mic.style.background='#27423a'; mic.style.color='#34d399';
         if(status.textContent==='● listening…') status.textContent='';
         micActive=false; renderOrb(); wakePause(false); };
       try{ r.start(); }catch(e){ micActive=false; renderOrb(); wakePause(false); status.textContent='mic busy — tap again'; }
     }
     mic.addEventListener('click', ()=>{
       audioCtx();                                                          // resume audio on this user gesture
-      try{ if(window.speechSynthesis && speaking) speechSynthesis.cancel(); }catch(e){}
-      if(curAudio){ const a=curAudio; curAudio=null; try{a.pause();}catch(e){} reactStop(); try{a.dispatchEvent(new Event('ended'));}catch(e){} } // interrupt Jetty mid-sentence
+      cutVoice();                                                          // interrupt Jetty mid-sentence (and drop any queued chunks)
       if(micActive) return;
       if(busy){ status.textContent='● one moment, sir…'; return; }          // give feedback instead of doing nothing
       micActive=true; renderOrb();
@@ -1724,15 +2147,22 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
     wake.addEventListener('click', ()=>{
       wakeOn=!wakeOn; renderOrb();
       if(wakeOn){
-        wake.style.background='rgba(52,211,153,.3)'; wake.style.color='#34d399'; status.textContent=IDLE; awaitingCmd=false;
-        wakeRec=new SR(); wakeRec.lang='en-US'; wakeRec.continuous=true; wakeRec.interimResults=true; wakeRec.maxAlternatives=1;
+        wake.style.background='#2b5847'; wake.style.color='#34d399'; status.textContent=IDLE; awaitingCmd=false;
+        wakeRec=new SR(); wakeRec.lang=window.__jettyLang||'en-US'; wakeRec.continuous=true; wakeRec.interimResults=true; wakeRec.maxAlternatives=1;
         wakeRec.onresult=e=>{
           const res=e.results[e.results.length-1];
           const txt=(res[0].transcript||'').trim();
           const fin=!!res.isFinal;
           const conf=confOf(res);                            // finals only; interims report nothing useful
-          // Barge-in: ONLY an explicit interrupt cuts him off — "Jetty…" or "stop/wait/hold on…".
-          // (It used to be any 3+ words, which let background noise slice him mid-sentence.)
+          if(vad.hold){                                      // the VAD paused him — do these words commit the cut?
+            if(isEcho(txt)) return;                          // his own voice leaking through the pause
+            if(!fin){ clearTimeout(vad.hold.t); vad.hold.t=setTimeout(vadResume, 3200); return; }   // words coming — keep holding
+            const w=txt.split(/\s+/).filter(x=>x.length>1).length;
+            if((conf!=null && conf<0.4) || (w<2 && !SHORTCMD.test(txt) && !WAKE.test(txt))) return vadResume();
+            if(strict && !WAKE.test(txt) && !BARGE.test(txt) && !SHORTCMD.test(txt)) return vadResume();   // strict keeps its promise: only his name (or stop/wait) commits
+            return vadCommit(txt);
+          }
+          // Barge-in fallback (VAD off/denied): an explicit interrupt still cuts him — "Jetty…" or "stop/wait/hold on…".
           if(speaking){
             if(isEcho(txt) || !BARGE.test(txt)) return;
             if(fin) return bargeIn(txt);
@@ -1762,18 +2192,28 @@ window.__os = { Graph, data, onNodeClick, clearFocus, groupOn, addNote, lightNod
           else { armCmd(); speak('Yes, sir?'); }             // just the name -> acknowledge, then listen
         };
         wakeRec.onerror=e=>{ if(e&&(e.error==='not-allowed'||e.error==='service-not-allowed')){
-          status.textContent='mic blocked — allow it in Chrome'; wakeOn=false; renderOrb();
-          wake.style.background='rgba(52,211,153,.08)'; wake.style.color='#5a6b62'; } };
-        wakeRec.onend=()=>{ if(wakeOn && !wakePaused && !micActive){ try{wakeRec.start();}catch(e){} } };
+          micWasBlocked=true; status.style.cursor='pointer';
+          status.textContent='mic blocked, sir — click here to test & fix'; wakeOn=false; renderOrb();
+          wake.style.background='#212b30'; wake.style.color='#5a6b62'; vadStop(); } };   // no recogniser → no commit path: kill the VAD too
+        wakeRec.onend=()=>{ if(wakeOn && !wakePaused && !micActive){ try{wakeRec.lang=window.__jettyLang||'en-US'; wakeRec.start();}catch(e){} } };
         wakePaused=false; micActive=false; try{wakeRec.start();}catch(e){}
-        speak('Hands-free engaged, sir. Say "Jetty" and I shall answer.');
+        vadStart();                                        // second mic stream: the instant-interrupt floor cut
+        if(wakeQuiet) wakeQuiet=false;                     // the share flow speaks its own combined line
+        else speak('Hands-free engaged, sir. Say "Jetty" and I shall answer.');
       } else {
-        wake.style.background='rgba(52,211,153,.08)'; wake.style.color='#5a6b62'; status.textContent=''; awaitingCmd=false; clearTimeout(wakeTimer);
+        wake.style.background='#212b30'; wake.style.color='#5a6b62'; status.textContent=''; awaitingCmd=false; clearTimeout(wakeTimer);
         if(wakeRec){ try{wakeRec.stop();}catch(e){} wakeRec=null; }
+        vadStop();
       }
     });
-  } else { mic.title='Voice needs Chrome or Edge'; mic.style.opacity=.4; wake.style.display='none'; }
+  } else { mic.dataset.tip='Voice needs Chrome or Edge'; mic.style.opacity=.4; wake.style.display='none'; }
 })();
 </script>
+<!-- V5 add-on bays: each module is optional — a missing/broken file never breaks the core viewer -->
+<script type="module" src="fx.js?v=1"></script>
+<script type="module" src="missions.js?v=1"></script>
+<script type="module" src="lang.js?v=1"></script>
+<script type="module" src="tools.js?v=1"></script>
+<script type="module" src="calls.js?v=1"></script>
 </body>
 </html>

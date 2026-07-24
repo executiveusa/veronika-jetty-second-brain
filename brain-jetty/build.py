@@ -89,7 +89,7 @@ def group_aios(rel):
         return "world"
     if rel.startswith(("wiki/", "cadence/")):
         return "core"
-    if rel.startswith(("projects/", "brainstorm/")):
+    if rel.startswith(("projects/", "brainstorm/", "captures/")):
         return "note"
     if os.sep not in rel and "/" not in rel:
         return "note"          # loose root files

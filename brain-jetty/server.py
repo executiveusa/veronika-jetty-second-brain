@@ -20,7 +20,7 @@ is set in config.json.
 
 Python 3 stdlib only.  Run:  python3 server.py
 """
-import os, re, json, time, uuid, shutil, threading, subprocess, urllib.request, urllib.error
+import os, re, json, time, uuid, shutil, socket, threading, subprocess, urllib.request, urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -203,7 +203,16 @@ CONTROL_HINT = (
     "[NODE:<the topic>] or, if they named something to connect/link it to, "
     "[NODE:<the topic>|<what to connect it to>]. NODE is ONLY for explicit requests to ADD/CREATE "
     "a new node or note — asking to SHOW, FIND, or PULL UP existing information is normal retrieval, "
-    "never a NODE. If they ask you to REMIND them of something or set a reminder/task — any "
+    "never a NODE. If they ask you to CREATE a real PROJECT, FOLDER, or WIKI page on disk — 'start a "
+    "new project for my sparkle app', 'make a folder for client X', 'add a wiki page on GEO pricing' — "
+    "reply EXACTLY [CREATE:<kind: project/folder/note/wiki>|<short name>|<where: projects / wiki / "
+    "wiki/concepts / brainstorm, or blank for the default>|<one line on what it is about, under 15 "
+    "words>|<existing note to connect it to, or blank>] with NO other words before or after — the "
+    "system speaks the confirmation for you. IMPORTANT: if you do NOT yet know what it's about — or, for "
+    "folders and notes, where it should live — ASK in a normal short reply first ('Where should this "
+    "live, sir — projects, the wiki, or brainstorm? And what is it about?') and emit the CREATE tag "
+    "only once they've answered; the conversation holds the details. Projects always live in "
+    "projects/. If they ask you to REMIND them of something or set a reminder/task — any "
     "phrasing — reply EXACTLY [REMIND:<the thing to do>|<the when-phrase they said, e.g. tomorrow / "
     "at 5pm / in 2 hours>] (omit the | part if no time given). If they ask you to change your HUMOR "
     "or HONESTY setting ('humor to 90', 'be less funny', 'maximum honesty') reply EXACTLY "
@@ -212,21 +221,45 @@ CONTROL_HINT = (
     "you to RESEARCH something, look something up online, google it, or fetch live/current "
     "information (today's news, a price, the weather, a score, a release date) reply EXACTLY "
     "[SEARCH:<a concise search query>] — ONLY when they clearly want live online information; "
-    "opinions, jokes, and anything in their own notes are never a SEARCH. Questions, jokes, or "
-    "opinions about models/voices/notes are normal conversation. SEPARATELY: at most once per "
+    "opinions, jokes, and anything in their own notes are never a SEARCH. If they ask you to SPEAK "
+    "or SWITCH TO another LANGUAGE — any phrasing, in ANY language: 'speak Spanish', 'habla español', "
+    "'parle-moi en français', 'back to English' — reply EXACTLY [LANG:<language name in English>]. "
+    "Questions, jokes, or opinions about models/voices/notes/languages are normal conversation. SEPARATELY: at most once per "
     "conversation, if the user says something genuinely worth teasing them about later, you may "
     "append at the very END of an otherwise normal reply: "
     "[GAG:<two or three trigger words>|<the short callback line to deliver later>].")
-TAG_RE = re.compile(r"^\s*\[(SWAP|VOICE|NODE|REMIND|DIAL|SKIN|SEARCH):([^\]]{1,160})\]\s*$", re.I)
+TAG_RE = re.compile(r"^\s*\[(SWAP|VOICE|NODE|CREATE|REMIND|DIAL|SKIN|SEARCH|LANG):([^\]]{1,320})\]\s*$", re.I)
+# fallback: the model led with the tag but couldn't resist adding prose — fire the tag, drop the chatter
+TAG_LEAD_RE = re.compile(r"^\s*\[(SWAP|VOICE|NODE|CREATE|REMIND|DIAL|SKIN|SEARCH|LANG):([^\]]{1,320})\]", re.I)
 GAG_TAG_RE = re.compile(r"\s*\[GAG:([^\]|]{1,60})\|([^\]]{1,160})\]\s*$", re.I)
 def apply_control_tag(ans, sid=None):
     """If the model answered with a control tag, execute it. Returns a response dict or None."""
     m = TAG_RE.match(ans or "")
     if not m:
+        lm = TAG_LEAD_RE.match(ans or "")
+        if lm:
+            rest = (ans or "")[lm.end():].strip()
+            # a hedge ("Shall I…?"), quoted docs ([NODE:<the topic>]), or a long explanation is
+            # NOT a command — speak the prose, never fire the side effect
+            if "<" in lm.group(2) or ">" in lm.group(2) or "?" in rest or len(rest) > 120:
+                if rest:
+                    return {"answer": rest, "nodes": []}
+            else:
+                m = lm                             # short acknowledgment after the tag — fire it, drop the chatter
+    if not m:
+        if re.match(r"^\s*\[(SWAP|VOICE|NODE|CREATE|REMIND|DIAL|SKIN|SEARCH|LANG):", ans or "", re.I):
+            return {"answer": "I lost the thread mid-command, sir — say that again, a touch shorter.",
+                    "nodes": []}                   # a malformed/overlong tag must never be read aloud
         return None
     kind, name = m.group(1).upper(), m.group(2).strip()
     if kind == "SWAP":
         return do_swap(name)
+    if kind == "LANG":
+        code = set_lang(name)
+        if not code:
+            return {"answer": f"I don't speak {name} yet, sir — my repertoire runs to " +
+                              ", ".join(lang_status()["spoken"]) + ".", "nodes": []}
+        return {"answer": LANGS[code][1], "nodes": [], "lang": lang_status()}
     if kind == "SEARCH":
         if not name:
             return {"answer": "Research what, sir?", "nodes": []}
@@ -244,7 +277,23 @@ def apply_control_tag(ans, sid=None):
         log_episode("note", "Node added: " + topic + ((" ↔ " + related) if related else ""))
         return {"answer": f"Done, sir — “{res['label']}” is live" +
                           (f" and wired to {related}." if related else " in the constellation."),
-                "nodes": [], "new_node": {"label": res["label"], "text": topic, "related": related}}
+                "nodes": [], "new_node": {"label": res["label"], "text": topic, "related": related,
+                                          "idx": res.get("idx"), "group": "note"}}
+    if kind == "CREATE":
+        parts = [x.strip() for x in name.split("|")] + [""] * 5
+        ckind, cname, cwhere, cabout, crelated = parts[:5]
+        if not cname:
+            return {"answer": "Create it as what, sir? I need at least a name.", "nodes": []}
+        res, err = create_item(ckind, cname, cwhere, cabout, crelated)
+        if err:
+            return {"answer": f"I couldn't build that, sir ({err}).", "nodes": []}
+        log_episode("create", f"{res['kind'].capitalize()} created: {res['label']} → {res['rel']}")
+        raise_card("notify", f"📁 {res['kind'].capitalize()} created — {res['label']}", res["rel"],
+                   source="create", speak=False)
+        return {"answer": res["say"], "nodes": [],
+                "new_node": {"label": res["label"], "text": cabout or cname, "related": res["related"],
+                             "rel": res["rel"], "idx": res.get("idx"), "group": res["group"],
+                             "kind": res["kind"]}}
     if kind == "DIAL":
         dm = re.match(r"(humor|honesty)\s*=\s*(\d{1,3})", name, re.I)
         v = persona.set_dial(dm.group(1), dm.group(2)) if dm else None
@@ -359,11 +408,163 @@ hue.init(CFG.get("hue") or {}, ROOT)
 # ---------- the AI-OS layer (deterministic Mac control) + the personality engine ----------
 import osctl
 import persona
+
+# ---------- V5 add-on bays (soft imports — the server boots fine without them) ----------
+try:
+    import missions as MISSIONS      # agentic missions: fleet / build-app / reaper / war room / announce / haters
+except Exception as _e:
+    MISSIONS = None
+    if not isinstance(_e, ModuleNotFoundError): print("[missions] failed to load:", _e)
+try:
+    import tools as TOOLS            # the armory: direct MCP tool connections + discovery/install
+except Exception as _e:
+    TOOLS = None
+    if not isinstance(_e, ModuleNotFoundError): print("[tools] failed to load:", _e)
+try:
+    import hands as HANDS            # permission-gated computer takeover (Claude computer-use loop)
+except Exception as _e:
+    HANDS = None
+    if not isinstance(_e, ModuleNotFoundError): print("[hands] failed to load:", _e)
+try:
+    import calls as CALLS            # hands-free phone calling on your behalf (Retell AI)
+except Exception as _e:
+    CALLS = None
+    if not isinstance(_e, ModuleNotFoundError): print("[calls] failed to load:", _e)
+try:
+    import pocket as POCKET          # text the brain from anywhere (Telegram, long-polled — no tunnel)
+except Exception as _e:
+    POCKET = None
+    if not isinstance(_e, ModuleNotFoundError): print("[pocket] failed to load:", _e)
+
+LAST_POLL = [0.0]                    # last time a viewer tab polled /api/inbox — pocket uses it to
+                                     # decide whether the desk or the phone should voice a reminder
+
+# ---------- presence orb: a floating Jetty reactor on the real desktop (UDP-driven) ----------
+PRESENCE_PORT = 4732
+PRESENCE_PROC = [None]
+
+def _persist_takeover_speed(tier):
+    """Persist just takeover.speed to config.json (re-reads disk so runtime-only state isn't written)."""
+    CFG.setdefault("takeover", {})["speed"] = tier
+    try:
+        path = os.path.join(ROOT, "config.json")
+        disk = json.load(open(path))
+        disk.setdefault("takeover", {})["speed"] = tier
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f: json.dump(disk, f, indent=2)
+        os.replace(tmp, path)
+    except Exception:
+        pass
+
+def presence(cmd):
+    """Fire-and-forget a command at presence.py over UDP. Boots the orb window on first use."""
+    try:
+        if PRESENCE_PROC[0] is None or PRESENCE_PROC[0].poll() is not None:
+            _spawn_presence()
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.sendto(cmd.encode(), ("127.0.0.1", PRESENCE_PORT)); s.close()
+    except Exception:
+        pass
+
+def _spawn_presence():
+    """Launch presence.py as a direct child — the server runs in the user's GUI session, so the
+    child inherits window-server access (verified). We hold the real handle in PRESENCE_PROC so
+    presence() never re-spawns a live orb. A `quit` first clears any orphan from a prior run."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.sendto(b"quit", ("127.0.0.1", PRESENCE_PORT)); s.close(); time.sleep(0.3)
+    except Exception:
+        pass
+    try:
+        PRESENCE_PROC[0] = subprocess.Popen(["/usr/bin/python3", os.path.join(ROOT, "presence.py")],
+                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(0.8)                 # let it bind UDP + create the window before commands arrive
+    except Exception:
+        pass
+# ---------- multilingual mode ----------
+LANG_FILE = os.path.join(ROOT, "jetty-lang.json")
+LANGS = {   # code: (English name, canned in-language confirmation line)
+    "en": ("English",    "Back to the King's English, sir."),
+    "es": ("Spanish",    "A sus órdenes, señor."),
+    "fr": ("French",     "À votre service, monsieur."),
+    "de": ("German",     "Zu Ihren Diensten, Sir."),
+    "it": ("Italian",    "Al suo servizio, signore."),
+    "pt": ("Portuguese", "Às suas ordens, senhor."),
+    "nl": ("Dutch",      "Tot uw dienst, meneer."),
+    "hi": ("Hindi",      "आपकी सेवा में, सर।"),
+    "ur": ("Urdu",       "حاضر ہوں، سر۔"),
+    "ar": ("Arabic",     "في خدمتك يا سيدي."),
+    "ja": ("Japanese",   "かしこまりました、サー。"),
+    "ko": ("Korean",     "분부대로 하겠습니다, 서."),
+    "zh": ("Chinese",    "遵命，先生。"),
+    "ru": ("Russian",    "К вашим услугам, сэр."),
+    "tr": ("Turkish",    "Emrinizdeyim, efendim."),
+    "pl": ("Polish",     "Do usług, sir."),
+}
+LANG_ALIAS = {"english": "en", "spanish": "es", "español": "es", "espanol": "es", "french": "fr",
+              "français": "fr", "francais": "fr", "german": "de", "deutsch": "de", "italian": "it",
+              "italiano": "it", "portuguese": "pt", "português": "pt", "portugues": "pt", "dutch": "nl",
+              "hindi": "hi", "urdu": "ur", "arabic": "ar", "japanese": "ja", "korean": "ko",
+              "chinese": "zh", "mandarin": "zh", "russian": "ru", "turkish": "tr", "polish": "pl",
+              "default": "en", "usual": "en"}
+LANG_LOCK = threading.Lock()
+def load_lang():
+    try:
+        with open(LANG_FILE) as f:
+            c = (json.load(f) or {}).get("code", "en")
+        return c if c in LANGS else "en"
+    except Exception:
+        return "en"
+def set_lang(name_or_code):
+    key = (name_or_code or "").strip().lower()
+    code = key if key in LANGS else LANG_ALIAS.get(key)
+    if not code:
+        return None
+    with LANG_LOCK:
+        try:
+            with open(LANG_FILE, "w") as f:
+                json.dump({"code": code}, f)
+        except Exception:
+            pass
+    return code
+def lang_status():
+    c = load_lang()
+    return {"code": c, "name": LANGS[c][0], "default": c == "en",
+            "spoken": sorted(v[0] for v in LANGS.values())}
+
 def jpersona(question=""):
     """The live persona block (skin + dials + gate + gags) — replaces the static PERSONA."""
     with VOICE_LOCK:
         v3 = "v3" in (VOICE.get("model_id") or "")
-    return persona.system(question, allow_tags=v3)
+    base = persona.system(question, allow_tags=v3)
+    # models don't know the date — without this, "tomorrow" got computed from training data
+    # (live bug 2026-07-13: calendar checked "6th of June 2025" and reported an empty day)
+    base += time.strftime("\n\nCURRENT DATE-TIME: %A, %d %B %Y, %H:%M %Z (local). Compute 'today', "
+                          "'tomorrow', 'next week' and every ISO date from THIS — never from memory.")
+    # global anti-capitulation: the 2026-07-13 live failure — a plain-chat follow-up "I have three
+    # meetings tomorrow" produced "You're right, sir — three blocks, exactly as you said" with ZERO
+    # tool data. Account data may only ever come from tool results.
+    base += ("\n\nLIVE-DATA HONESTY (non-negotiable): you have NO live access to email, calendar, "
+             "drafts, or connected apps except through explicit tool runs whose results appear in "
+             "this conversation. Never state, summarize, or AGREE about such account data without "
+             "an actual tool result backing it — if the user disputes a result, tell them you'll "
+             "re-check (say 'check again') rather than conceding; their memory is not a data "
+             "source, and neither is yours. When a tool result IS present, read its specifics "
+             "aloud — the no-recital rule covers vault notes only.")
+    c = load_lang()
+    if c != "en":
+        nm = LANGS[c][0]
+        base += (f"\n\nLANGUAGE (non-negotiable): sir has switched you to {nm}. EVERY reply — answers, "
+                 f"quips, acknowledgments — must be written entirely in {nm}, keeping the same butler "
+                 f"character. Control tags like [SWAP:…]/[LANG:…] themselves stay in English.")
+    else:
+        base += ("\n\nLANGUAGE: reply in English by default; but if sir writes to you in another "
+                 "language, reply fluently in that same language.")
+    base += ("\n\nHEARD, NOT TYPED: most input arrives through speech recognition, so names come "
+             "misheard — 'Higgs Field' means Higgsfield, 'can va' means Canva, 'site view' means "
+             "their projects. Match names generously against what you know of sir's tools, projects and "
+             "notes; never quibble about spelling, and only ask when genuinely ambiguous.")
+    return base
 
 # ---------- duplex voice (ElevenLabs Agents custom-LLM brain on a separate, token-authed port) ----------
 DUPLEX_PORT = 4722
@@ -410,10 +611,17 @@ def realtime_session():
         return None, ("GPT Realtime isn't wired yet, sir — paste an OpenAI key under \"openai\" "
                       "in config.json.")
     instructions = (PERSONA + mem_block() +
+        time.strftime("Current date-time: %A, %d %B %Y, %H:%M %Z (local) — compute 'today'/'tomorrow' from this. ") +
         "You are the VOICE layer only. Speak in short, dry, witty sentences, 'sir' now and then. "
         "For ANYTHING about the user's notes, projects, memory, tasks, schedule, or anything you "
         "aren't certain of, call the ask_jetty tool and relay its answer faithfully in your own "
-        "spoken style — never invent details about the user's life. No markdown, no lists. "
+        "spoken style — never invent details about the user's life. If the user disputes an answer "
+        "about their email or calendar, say you'll verify from the desk — never simply agree with "
+        "their version; you hold no account data of your own. No markdown, no lists. "
+        "SCREEN: whenever the user asks about what's on their screen — what they're looking at, to "
+        "read/describe/critique it, 'what do you see', 'look at this' — you MUST call the "
+        "look_at_screen tool FIRST and answer only from the fresh screenshot it attaches. NEVER "
+        "describe the screen from memory or guess; the screen changes constantly. "
         "IMPORTANT: if the user asks to switch models/brains ('try on grok', 'switch to gemini', "
         "'back to your usual brain') or to change anything about Jetty itself, do NOT refuse — "
         "pass the request VERBATIM to ask_jetty and relay the result; the system executes it.")
@@ -424,7 +632,12 @@ def realtime_session():
                              "projects, memory, tasks, or life. Use it liberally.",
               "parameters": {"type": "object",
                              "properties": {"question": {"type": "string"}},
-                             "required": ["question"]}}]
+                             "required": ["question"]}},
+             {"type": "function", "name": "look_at_screen",
+              "description": "Attaches a FRESH screenshot of the user's screen right now so you can "
+                             "see what they're actually looking at. Call this every time the user "
+                             "asks about their screen — never answer about the screen without it.",
+              "parameters": {"type": "object", "properties": {}}}]
     # GA endpoint (client_secrets, session object) first; fall back to the legacy beta (sessions)
     attempts = [
         ("https://api.openai.com/v1/realtime/client_secrets",
@@ -621,7 +834,9 @@ def chat(question, sid):
         sysp = jpersona(question) + ident + mem + ("The user is talking TO you — chatting, sharing a plan, or asking your "
                "opinion — NOT asking to look something up in their notes. Reply in 1-2 short, genuinely "
                "FUNNY, dry-witted sentences, 'sir' now and then. Don't mention their notes. Keep it quick "
-               "— no caveats, no 'let me check', no hedging, no looking anything up; just a sharp, amusing take."
+               "— no caveats, no hedging; just a sharp, amusing take. ONE exception: anything about their "
+               "live account data (email, calendar, meetings, drafts, app records) follows LIVE-DATA "
+               "HONESTY above — offer to re-check rather than asserting or agreeing."
                + CONTROL_HINT)
         if carry:
             sysp += "\n\n(For continuity only, the last note discussed:\n" + carry + ")"
@@ -666,8 +881,9 @@ def chat(question, sid):
 # cost; everything else stays at ~2-3s. Uses Anthropic's server-side web_search tool, which only
 # exists on the Claude API — so research always runs on the config.json Claude brain, even while
 # the conversational brain is hot-swapped to grok/gpt via OpenRouter.
-def web_research(question, sid=None, max_uses=5):
-    """Answer a question with live web search. Returns (response dict, err)."""
+def web_research(question, sid=None, max_uses=5, image=None):
+    """Answer a question with live web search. Returns (response dict, err).
+    image: optional base64 JPEG of the user's shared screen — grounds 'research THIS' requests."""
     cfgm = CFG.get("model") or {}
     key = cfgm.get("api_key", "")
     base = (cfgm.get("base_url") or "").strip().rstrip("/")
@@ -681,8 +897,16 @@ def web_research(question, sid=None, max_uses=5):
             "The user asked you to research something online. Use the web_search tool NOW — do not "
             "answer from memory alone. Then give a tight, spoken-friendly answer: 2-4 sentences with "
             "the key facts, names and numbers, a touch of dry wit, 'sir' now and then. No URLs, no "
-            "markdown, no bullet lists in the answer — sources are surfaced separately.")
-    msgs = list(hist(sid)) + [{"role": "user", "content": question}]
+            "markdown, no bullet lists in the answer — sources are surfaced separately." +
+            ("" if not image else
+             " A screenshot of the user's CURRENT SCREEN is attached — their request refers to what is "
+             "visible on it (an article, product, name, error…). FIRST read the screenshot to pin down "
+             "exactly what they mean, THEN search the web for it. Open your answer by naming the thing "
+             "you researched, so they know you actually read the screen."))
+    ucontent = (question if not image else
+                [{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image}},
+                 {"type": "text", "text": question}])
+    msgs = list(hist(sid)) + [{"role": "user", "content": ucontent}]
     body = {"model": mid, "max_tokens": 1024, "system": sysp, "messages": msgs,
             "tools": [{"type": "web_search_20260209", "name": "web_search", "max_uses": max_uses}]}
     headers = {"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
@@ -730,6 +954,74 @@ def web_research(question, sid=None, max_uses=5):
     raise_card("notify", title, body, source="research", speak=False)
     return {"answer": ans, "nodes": [], "sources": sources[:4]}, None
 
+def tool_chat(question, sid=None):
+    """Answer using the CONNECTED tools (Anthropic MCP connector) — the armory's fast path.
+    Mirrors web_research: always the config.json Claude brain, shared conversation memory."""
+    if not TOOLS:
+        return None, "the tool armory isn't loaded"
+    sysp = (jpersona(question) + mem_block() +
+            "The user asked you to act through your CONNECTED TOOLS. "
+            "SEQUENCE — follow it for EVERY request, in order: (1) identify the app the ask "
+            "implies; (2) scan the attached tool list for a directly-connected match; (3) if none, "
+            "scan the 'zapier' server's tools next (it fronts thousands of apps — names look like "
+            "gmail_find_email or slack_send_channel_message); (4) the moment you find a fit, CALL "
+            "IT — silently, with zero narration about which route you took; (5) only if NOTHING "
+            "attached fits, say: you checked the direct connections and Zapier, <the app> isn't "
+            "connected there yet — they should either connect it in the tool armory or add it "
+            "inside their Zapier at mcp.zapier.com (Add Apps), and you'll handle it from then on. "
+            "NEVER FABRICATE: every fact you state must come from an actual tool RESULT in this "
+            "conversation. If a call failed, returned nothing, or never happened, say exactly that "
+            "instead — inventing emails, events, or records is the one unforgivable failure. Never "
+            "role-play a tool result. "
+            "EMAIL RULE: 'check my email/inbox' means the Gmail PRIMARY inbox only — constrain "
+            "searches with category:primary in:inbox (never Promotions, Social, Updates, or spam) "
+            "unless the user names another folder or category. "
+            "RECEIPTS ON WRITES: after any write action (draft, create, post, update), claim "
+            "success ONLY if the tool result confirms it — an id, link, or status. Say WHERE it "
+            "landed ('the draft is sitting in your Gmail drafts now, sir') but never read raw "
+            "ids aloud. If the call errored, returned nothing, or never ran, say that plainly "
+            "instead — a claimed-but-unmade draft is fabrication. "
+            "CALENDAR RULE: 'my calendar' means the connected account's PRIMARY calendar and "
+            "that one ONLY — never list, search, or offer to sweep other calendars (Family, "
+            "holidays, week numbers) unless the user names one. Never mention the account's "
+            "email address or which calendar you searched in a normal answer. Agenda answers "
+            "stay SHORT: the items in one breath with their times, then ONE dry witty remark "
+            "about the day itself — no closing questions, no offers to dig further. "
+            "DISPUTED RESULTS: an ordinary empty day is reported plainly ('nothing on the books "
+            "tomorrow, sir') with no account names and no interrogating other calendars. ONLY if "
+            "the user says you're wrong: re-run the tool fresh, and THEN name exactly which "
+            "account/calendar/mailbox you searched (it's in the tool result) so the mismatch can "
+            "be found — but NEVER simply adopt the user's version; data comes from tools, not "
+            "concession. "
+            "READ IT BACK: when the user asks for information (calendar, email, sheets, records, "
+            "numbers), your reply MUST contain the information itself, read back conversationally "
+            "with your dry commentary — for lists, read the items (up to about six). NEVER reply "
+            "with 'done', 'it's on your screen', or a pointer to where the answer lives; you ARE "
+            "the read-out. Never narrate mechanics — no play-by-play about date formats, tool "
+            "quirks, or intermediate steps; deliver the findings only. Spoken-friendly: 2-5 "
+            "sentences, 'sir' now and then. No URLs, no markdown. If a tool errors, say plainly "
+            "which one and why. "
+            "NAMES ARRIVE MISHEARD (speech recognition): 'Higgs Field' means the higgsfield server, "
+            "'can va' means canva — match tool and server names generously before concluding "
+            "anything is missing, and when asked what you can do, list the attached servers by name.")
+    msgs = list(hist(sid)) + [{"role": "user", "content": question}]
+    res, err = TOOLS.chat(msgs, sysp)
+    if err:
+        # transient API/Zapier slowness reads as a raw timeout — give him the recovery move instead
+        if "timed out" in str(err).lower():
+            err = ("the tool line went quiet mid-call, sir — a slow patch on the wires, not a fault "
+                   "of yours. Say 'check again' and I shall have another go.")
+        return None, err
+    ans = re.sub(r"\*{1,2}([^*\n]+)\*{1,2}", r"\1", res["answer"]).replace("`", "")  # no markdown on voice/screen/card
+    add_turn(sid, "user", question); add_turn(sid, "assistant", ans)
+    log_episode("tools", "Used tools: " + question)
+    if res.get("tools_used"):
+        # clean title — the old one echoed the raw speech transcript (read as garbled), via-info lives here now
+        raise_card("notify", "🛠 Tool run — via " + ", ".join(res["tools_used"]),
+                   ans, source="tools", speak=False)
+    return {"answer": ans, "nodes": [], "tools_used": res.get("tools_used", []),
+            "tool_calls": res.get("tool_calls", []), "tool_errors": res.get("tool_errors", 0)}, None
+
 # ---------- speech normalization: make text READ like a butler, not a screen reader ----------
 # "$97/mo" → "$97 a month", markdown/URLs/emoji dropped, dashes become a beat. Idempotent, and
 # never touches [square-bracket audio tags] (those are v3 voice directions handled downstream).
@@ -738,7 +1030,9 @@ SPEAK_UNIT = {"mo": "month", "month": "month", "yr": "year", "year": "year", "wk
 def speakable(t):
     t = str(t or "")
     t = t.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
-    t = re.sub(r"https?://\S+|www\.\S+", "", t)                     # URLs are for the screen
+    t = re.sub(r"https?://\S+|www\.\S+"                              # URLs are for the screen —
+               r"|\b[A-Za-z0-9][\w.-]*\.(?:com|ai|io|net|org|dev|app|co|me|so|xyz|gg|page|site|design|link)/\S+",
+               "", t)                                                # incl. BARE ones (canva.com/d/… read letter-by-letter otherwise)
     t = re.sub(r"[*_`#]+", "", t)                                    # markdown leftovers
     t = re.sub(r"/\s*(mo|month|yr|year|wk|week|day|hr|hour|min)s?\b",
                lambda m: " a " + SPEAK_UNIT[m.group(1).lower()], t, flags=re.I)
@@ -786,19 +1080,165 @@ def capture(text, related=""):
     words = re.findall(r"[A-Za-z0-9]+", text)
     slug = ("-".join(w.lower() for w in words[:7]) or "note")[:60]
     capdir = os.path.join(VAULT, "captures")
+    anchor = find_note(related) if (related or "").strip() else None
+    # ALWAYS write a resolvable wikilink — build.py prunes link-free notes on rebuild
+    body = f"# {label}\n\n{text}\n\nRelated: {_wikilink(anchor)}\n"
     try:
         os.makedirs(capdir, exist_ok=True)
         path, i = os.path.join(capdir, slug + ".md"), 1
-        while os.path.exists(path):
-            path = os.path.join(capdir, f"{slug}-{i}.md"); i += 1
-        body = f"# {label}\n\n{text}\n"
-        if (related or "").strip():                    # persist the spoken connection as a wikilink
-            body += f"\nRelated: [[{related.strip()}]]\n"
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(body)
+        while True:                                    # open('x') so racing captures never share a file
+            try:
+                with open(path, "x", encoding="utf-8") as f:
+                    f.write(body)
+                break
+            except FileExistsError:
+                path = os.path.join(capdir, f"{slug}-{i}.md"); i += 1
     except OSError as e:
         return None, f"couldn't write the note, sir ({e.__class__.__name__})"
-    return {"label": label, "rel": os.path.relpath(path, VAULT)}, None
+    rel = os.path.relpath(path, VAULT).replace(os.sep, "/")
+    idx = persist_node(rel, label, "note", text, anchor["id"] if anchor else "wiki/INDEX.md")
+    return {"label": label, "rel": rel, "idx": idx}, None
+
+# ---------- create: real folders / projects / wiki pages, born straight into the graph ----------
+# A created item is THREE things at once: a real folder/.md in the vault, a durable node appended
+# to graph-data.js (+ the demo backup so seed_demo --clear can't erase real work), and a live
+# CORPUS entry so "pull up X" retrieves it immediately — no rebuild, no restart.
+CREATE_ROOTS = ("projects", "wiki", "brainstorm", "captures", "cadence")
+GRAPH_LOCK = threading.Lock()
+
+def _slugify(text, cap=48):
+    words = re.findall(r"[A-Za-z0-9]+", text or "")
+    return ("-".join(w.lower() for w in words) or "note")[:cap].strip("-")
+
+def _group_for(rel):
+    """Mirror build.py's group_aios() so a later full rebuild keeps the same look."""
+    if rel.startswith("wiki/concepts/"):
+        return "concept"
+    if rel.startswith("wiki/skills/"):
+        return "hub" if rel.count("/") == 2 else "skill"
+    if rel.startswith("wiki/tools/"):
+        return "tool"
+    if rel.startswith("wiki/worlds/"):
+        return "world"
+    if rel.startswith(("wiki/", "cadence/")):
+        return "core"
+    return "note"                                  # projects/, brainstorm/, captures/
+
+def _wikilink(anchor):
+    """A wikilink that build.py can actually resolve: link by file STEM, alias by label."""
+    if not anchor:
+        return "[[INDEX]]"
+    stem = os.path.splitext(os.path.basename(anchor.get("id") or ""))[0]
+    label = str(anchor.get("label") or stem)
+    if not stem:
+        return f"[[{label}]]"
+    return f"[[{stem}]]" if stem.lower() == label.lower() else f"[[{stem}|{label}]]"
+
+def persist_node(rel, label, group, preview, anchor_id=None):
+    """Append a node — plus a link to anchor_id, resolved PER FILE by node id since indices
+    differ between the served file and the demo backup — to graph-data.js (and the
+    .predemo.bak if present) and to the live CORPUS. Returns the served file's new index,
+    or None if the served file couldn't be written."""
+    p = re.sub(r"\s+", " ", (preview or "")).strip()[:700]
+    with GRAPH_LOCK:
+        idx = None
+        for cand in (os.path.join(ROOT, "viewer", "graph-data.js"),
+                     os.path.join(ROOT, "viewer", "graph-data.js.predemo.bak")):
+            if not os.path.exists(cand):
+                continue
+            try:
+                src = open(cand, encoding="utf-8").read()
+                m = re.search(r"const GRAPH\s*=\s*(\{.*\});", src, re.S)
+                if not m:
+                    continue
+                g = json.loads(m.group(1))
+                nid = len(g["nodes"])
+                g["nodes"].append({"id": rel, "label": label, "g": group, "p": p})
+                if anchor_id:
+                    a = next((i for i, n in enumerate(g["nodes"][:nid]) if n.get("id") == anchor_id), None)
+                    if a is not None:              # anchor absent in this file (e.g. a demo node in the bak) → no link
+                        g["links"].append({"s": nid, "t": a})
+                tmp = cand + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    f.write(src[:m.start(1)] + json.dumps(g, ensure_ascii=False) + src[m.end(1):])
+                os.replace(tmp, cand)
+                if cand.endswith("graph-data.js"):
+                    idx = nid                      # only the served file's index means anything to the viewer
+            except Exception:
+                continue
+        if idx is not None:
+            CORPUS.append({"id": rel, "label": label, "g": group, "p": p, "_idx": idx})
+        return idx
+
+def create_item(kind, name, where="", about="", related=""):
+    """Create a project/folder/note/wiki page in the vault. Returns (result dict, err)."""
+    if not VAULT or not os.path.isdir(VAULT):
+        return None, "vault not set in config.json"
+    kind = (kind or "note").strip().lower()
+    if kind not in ("project", "folder", "note", "wiki"):
+        kind = "note"
+    name = (name or "").strip()
+    if not name:
+        return None, "no name"
+    slug = _slugify(name)
+    where = (where or "").strip().strip("/").replace("\\", "/")
+    if kind == "project":
+        base = "projects"                          # router rule: new work → projects/<yyyy-mm-name>/
+    elif kind == "wiki":
+        base = where if where.startswith("wiki") else "wiki"
+    elif where:
+        base = where
+    else:
+        base = "projects" if kind == "folder" else "captures"
+    if base.split("/")[0] not in CREATE_ROOTS:
+        base = "projects" if kind in ("project", "folder") else "wiki"
+    vroot = os.path.normpath(VAULT)
+    droot = os.path.normpath(os.path.join(VAULT, base))
+    if not (droot == vroot or droot.startswith(vroot + os.sep)):
+        return None, "that path escapes the vault, sir"
+    anchor = find_note(related) if (related or "").strip() else None
+    body = f"# {name}\n\n{about or name}\n\nRelated: {_wikilink(anchor)}\n"
+    made_folder = None
+    try:
+        if kind in ("project", "folder"):
+            dirname = (time.strftime("%Y-%m-") + slug) if kind == "project" else slug
+            folder, i = os.path.join(droot, dirname), 1
+            while True:                            # makedirs w/o exist_ok is the exclusivity check
+                try:
+                    os.makedirs(folder); break
+                except FileExistsError:
+                    folder = os.path.join(droot, f"{dirname}-{i}"); i += 1
+            made_folder = folder
+            path = os.path.join(folder, slug + ".md")
+            with open(path, "x", encoding="utf-8") as f:
+                f.write(body)
+        else:
+            os.makedirs(droot, exist_ok=True)
+            path, i = os.path.join(droot, slug + ".md"), 1
+            while True:                            # open('x') so two racing creates never share a file
+                try:
+                    with open(path, "x", encoding="utf-8") as f:
+                        f.write(body)
+                    break
+                except FileExistsError:
+                    path = os.path.join(droot, f"{slug}-{i}.md"); i += 1
+    except OSError as e:
+        if made_folder:                            # don't strand an empty project folder
+            try: os.rmdir(made_folder)
+            except OSError: pass
+        return None, f"couldn't create it ({e.__class__.__name__})"
+    rel = os.path.relpath(path, VAULT).replace(os.sep, "/")
+    group = _group_for(rel)
+    idx = persist_node(rel, name, group, about or name,
+                       anchor["id"] if anchor else "wiki/INDEX.md")
+    home = os.path.dirname(rel) or "the vault"
+    say = (f"Done, sir — “{name}” is live in {home}" +
+           (f", wired to {anchor['label']}." if anchor else "."))
+    if idx is None:                                # file is real, the constellation write wasn't
+        say = (f"“{name}” is on disk in {home}, sir — though the constellation ledger "
+               "hiccupped; it'll take its place after the next rebuild.")
+    return {"label": name, "rel": rel, "idx": idx, "group": group, "kind": kind,
+            "related": anchor["label"] if anchor else "", "say": say}, None
 
 EDIT_BLOCK = {"claude.md", "skill.md", "readme.md", "handoff.md", "config.json", "config.example.json"}
 def edit_note(target, text):
@@ -946,7 +1386,9 @@ def briefing():
             return out, None
     # Fallback (no Claude Code / tools available): tasks + notes only, via the model API.
     sysp = jpersona() + ("Give a short spoken morning briefing (2-4 sentences) in character: summarize "
-           "open tasks and recent notes with a little wit. Address them as 'sir'.")
+           "open tasks and recent notes with a little wit. Address them as 'sir'. OPEN by saying mail "
+           "and calendar are unreachable right now, so this covers tasks and notes only — never let a "
+           "notes-only briefing pass as a full one.")
     return call_model([{"role": "user", "content": "Brief me.\n\n" + ctx}], sysp, 400)
 
 # ---------- proactive / scheduled briefings ----------
@@ -995,6 +1437,11 @@ def claude_read(prompt, timeout=180):
     Returns (text, None) or (None, error)."""
     if not claude_ready():
         return None, "claude not available"
+    # anti-fabrication rider on EVERY read prompt: a dead/missing connector must be reported,
+    # never papered over (user 2026-07-13: "check my email" returned invented messages)
+    prompt = (prompt + "\n\nHONESTY RULE: report ONLY what your tools actually returned. If a "
+              "connector (Gmail, Calendar, ...) is unavailable, unauthorized, or returns nothing, "
+              "say exactly that in one plain sentence — NEVER invent messages, events, or data.")
     try:
         os.makedirs(AGENT_WORKSPACE, exist_ok=True)
     except OSError:
@@ -1023,12 +1470,18 @@ def run_agent(task, execute=False):
     if execute:
         prompt = ("You are JETTY, carrying out an action the user has already CONFIRMED, using their "
                   "connected tools. Complete it, then report in 1-3 dry, witty sentences addressing them "
-                  "as 'sir'." + mem_block() + "\n\nTask: " + task)
+                  "as 'sir'. RECEIPTS: only claim the action happened if a tool's output CONFIRMS it (an "
+                  "id, link, or status you actually saw) — if a tool errored or was unavailable, say "
+                  "exactly that instead; a claimed-but-unmade action is fabrication."
+                  + mem_block() + "\n\nTask: " + task)
         args = [CLAUDE_BIN, "-p", "--add-dir", VAULT, "--permission-mode", "bypassPermissions", prompt]
     else:
         prompt = ("You are JETTY, the user's assistant, operating their connected tools. Read and research "
                   "freely to complete the task, then reply in 1-3 short, witty sentences addressing them as "
-                  "'sir'. SAFETY: this is DRAFT mode — do NOT send, post, publish, reply, delete, or spend. "
+                  "'sir'. HONESTY: report ONLY what your tools actually returned — if a connector (Gmail, "
+                  "Calendar, …) is unavailable, errors, or returns nothing, say exactly that in one plain "
+                  "sentence; NEVER invent emails, events, or records. "
+                  "SAFETY: this is DRAFT mode — do NOT send, post, publish, reply, delete, or spend. "
                   "If the task would do any of those, prepare the full draft, show it, and end your reply with "
                   "a final line containing exactly: NEEDS_CONFIRMATION" + mem_block() + "\n\nTask: " + task)
         # DRAFT: no --add-dir (so it can't touch vault files) + denylist; reads via MCP still work.
@@ -1577,6 +2030,31 @@ class H(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?")[0]
+        if MISSIONS and path.startswith("/mission"):
+            try:
+                if MISSIONS.handle(self, "GET", self.path, {}): return
+            except Exception as e:
+                return self._json({"error": f"mission bay error: {str(e)[:120]}"}, 500)
+        if TOOLS and (path in ("/api/tools", "/oauth/callback") or path.startswith("/tool_logo/")):
+            try:
+                if TOOLS.handle(self, "GET", self.path, {}): return
+            except Exception as e:
+                return self._json({"error": f"tool bay error: {str(e)[:120]}"}, 500)
+        if HANDS and path == "/api/hands":
+            try:
+                if HANDS.handle(self, "GET", self.path, {}): return
+            except Exception as e:
+                return self._json({"error": f"hands bay error: {str(e)[:120]}"}, 500)
+        if CALLS and path == "/api/calls":
+            try:
+                if CALLS.handle(self, "GET", self.path, {}): return
+            except Exception as e:
+                return self._json({"error": f"calls bay error: {str(e)[:120]}"}, 500)
+        if POCKET and path == "/api/pocket":
+            try:
+                if POCKET.handle(self, "GET", self.path, {}): return
+            except Exception as e:
+                return self._json({"error": f"pocket bay error: {str(e)[:120]}"}, 500)
         if path == "/api/brand":
             return self._json({"name": CFG.get("name", "SECOND BRAIN"), "logo": bool(CFG.get("logo"))})
         if path == "/api/tasks":
@@ -1584,6 +2062,7 @@ class H(BaseHTTPRequestHandler):
         if path == "/api/proactive":
             return self._json(proactive_status())
         if path == "/api/inbox":
+            LAST_POLL[0] = time.time()           # a viewer tab is alive — the desk owns spoken reminders
             return self._json({"cards": inbox_open()})
         if path == "/api/dnd":
             return self._json(load_dnd())
@@ -1596,6 +2075,8 @@ class H(BaseHTTPRequestHandler):
             return self._json(voice_status())
         if path == "/api/persona":
             return self._json(persona.status())
+        if path == "/api/lang":
+            return self._json(lang_status())
         if path == "/api/duplex":                # live-conversation engines available + active pick
             dx = load_duplex()
             dp = duplex_providers()
@@ -1639,6 +2120,42 @@ class H(BaseHTTPRequestHandler):
             p = {}
         path = self.path.split("?")[0]
 
+        if MISSIONS and path.startswith("/mission"):
+            try:
+                if MISSIONS.handle(self, "POST", self.path, p): return
+            except Exception as e:
+                return self._json({"error": f"mission bay error: {str(e)[:120]}"}, 500)
+
+        if TOOLS and path.startswith("/tools"):
+            try:
+                if TOOLS.handle(self, "POST", self.path, p): return
+            except Exception as e:
+                return self._json({"error": f"tool bay error: {str(e)[:120]}"}, 500)
+
+        if HANDS and path.startswith("/hands"):
+            try:
+                if HANDS.handle(self, "POST", self.path, p): return
+            except Exception as e:
+                return self._json({"error": f"hands bay error: {str(e)[:120]}"}, 500)
+
+        if CALLS and path.startswith("/calls"):
+            try:
+                if CALLS.handle(self, "POST", self.path, p): return
+            except Exception as e:
+                return self._json({"error": f"calls bay error: {str(e)[:120]}"}, 500)
+
+        if path == "/presence":           # client drives the desktop orb (screen-share on/off, states)
+            cmd = (p.get("cmd") or "").strip()
+            if cmd: presence(cmd)
+            return self._json({"ok": True})
+
+        if path == "/tool_chat":         # "use canva to…" — act through the connected tools
+            q = (p.get("question") or "").strip()
+            if not q: return self._json({"error": "empty question"}, 400)
+            res, err = tool_chat(q, p.get("session"))
+            if err: hue.error_flash()
+            return self._json({"error": err}, 502) if err else self._json(res)
+
         if path == "/chat":
             q = (p.get("question") or "").strip()
             if not q: return self._json({"error": "empty question"}, 400)
@@ -1654,6 +2171,7 @@ class H(BaseHTTPRequestHandler):
                 if gm:
                     persona.add_gag(gm.group(1), gm.group(2))
                     ans = GAG_TAG_RE.sub("", ans).strip()
+                ans = re.sub(r"\*{1,2}([^*\n]+)\*{1,2}", r"\1", ans or "")  # raw **bold** was reaching the screen
                 log_episode("chat", q, nodes)
             else: hue.error_flash()
             return self._json({"error": err}, 502) if err else self._json({"answer": ans, "nodes": nodes})
@@ -1661,7 +2179,7 @@ class H(BaseHTTPRequestHandler):
         if path == "/research":     # explicit "research/look up X" → live web search (Anthropic server tool)
             q = (p.get("question") or "").strip()
             if not q: return self._json({"error": "empty question"}, 400)
-            res, err = web_research(q, p.get("session"))
+            res, err = web_research(q, p.get("session"), image=(p.get("image") or None))
             if err: hue.error_flash()
             return self._json({"error": err}, 502) if err else self._json(res)
 
@@ -1782,6 +2300,12 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": verr}, 404)
             return self._json({**voice_status(), "answer": f"How do I sound, sir? This is {spoken}."})
 
+        if path == "/lang":               # multilingual mode: "speak Spanish" / "back to English"
+            code = set_lang((p.get("lang") or "").strip())
+            if not code:
+                return self._json({"error": "I don't speak that one yet, sir — my repertoire runs to " +
+                                            ", ".join(lang_status()["spoken"]) + "."}, 404)
+            return self._json({**lang_status(), "line": LANGS[code][1]})
         if path == "/duplex_pref":        # pick the live-voice engine: elevenlabs | openai | auto
             prov = (p.get("provider") or "auto").strip().lower()
             if prov not in ("elevenlabs", "openai", "auto"):
@@ -1865,6 +2389,9 @@ class H(BaseHTTPRequestHandler):
 
         if path == "/hue_event":          # client playback events drive the room lighting
             ev = (p.get("event") or "").strip()
+            if HANDS and not HANDS.RUN.get("active"):    # don't fight the "driving" state during takeover
+                if ev == "speak_start": presence("state:speaking")
+                elif ev == "speak_end": presence("state:idle")
             if ev == "speak_start": hue.speak_start()
             elif ev == "speak_end": hue.speak_end()
             elif ev == "error": hue.error_flash()
@@ -2017,5 +2544,47 @@ if __name__ == "__main__":
     print(f"Brain Studio V3 (assistant) on http://localhost:{PORT}  ·  {len(CORPUS)} notes  ·  "
           f"model: {MODEL} ({prov})  ·  hands: {hands}  ·  hue: {hue.status()['state']}")
     osctl.start_clip_watch()
+    if MISSIONS:
+        try:
+            MISSIONS.init(dict(cfg=CFG, root=ROOT, port=PORT, raise_card=raise_card,
+                               call_model=call_model, claude_read=claude_read, jpersona=jpersona))
+            print("[missions] bay online")
+        except Exception as e:
+            print("[missions] init failed:", e)
+    if TOOLS:
+        try:
+            TOOLS.init(dict(cfg=CFG, root=ROOT, port=PORT, raise_card=raise_card, jpersona=jpersona))
+            print("[tools] bay online")
+        except Exception as e:
+            print("[tools] init failed:", e)
+    if HANDS:
+        try:
+            HANDS.init(dict(cfg=CFG, model=MODEL, key=MODELCFG.get("api_key", ""),
+                            base=MODELCFG.get("base_url", ""), provider=MODELCFG.get("provider", "anthropic"),
+                            jpersona=jpersona, mem_block=mem_block, presence=presence,
+                            speed=(CFG.get("takeover") or {}).get("speed", "balanced"),
+                            persist_speed=_persist_takeover_speed,
+                            log=lambda kind, text: log_episode("takeover", f"{kind}: {text[:80]}")))
+            print("[hands] bay online")
+        except Exception as e:
+            print("[hands] init failed:", e)
+    if CALLS:
+        try:
+            CALLS.init(dict(cfg=CFG, root=ROOT, jpersona=jpersona, mem_block=mem_block,
+                            call_model=call_model, web_research=web_research, raise_card=raise_card,
+                            log=lambda kind, text: log_episode("call", f"{kind}: {text[:80]}")))
+            print("[calls] bay online")
+        except Exception as e:
+            print("[calls] init failed:", e)
+    if POCKET:
+        try:
+            POCKET.init(dict(cfg=CFG, root=ROOT, chat=chat, try_chat_swap=try_chat_swap,
+                             apply_tag=apply_control_tag, gag_re=GAG_TAG_RE, add_gag=persona.add_gag,
+                             log=log_episode, open_tasks=open_tasks, mark_reminded=mark_reminded,
+                             inbox_open=inbox_open, raise_card=raise_card,
+                             last_seen=lambda: LAST_POLL[0]))
+            print("[pocket] bay online" + ("" if POCKET.configured() else " (no Telegram token yet — dormant)"))
+        except Exception as e:
+            print("[pocket] init failed:", e)
     start_duplex_server()
     ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
