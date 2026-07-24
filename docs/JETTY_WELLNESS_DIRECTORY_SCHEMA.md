@@ -1,68 +1,104 @@
-# Utah Wellness Directory — Field-by-Field Collection Schema Specification
+# Utah Wellness Directory — Field-by-Field Collection Schema & Security Specification
 
-This document defines the complete Payload CMS / PostgreSQL schema for the public Utah Wellness Directory collections (`businesses`, `categories`, `locations`, `reviews`, `leads`, `claims`).
+This document defines the complete Payload CMS / PostgreSQL schema for the public Utah Wellness Directory collections (`businesses`, `categories`, `locations`, `reviews`, `leads`, `claims`), including access control policies and trust verification rules.
 
 ---
 
 ## 1. Collection: `categories`
 - `id` (UUID / text, required, primary key)
-- `slug` (text, unique, indexed) e.g., `"yoga-studios"`
+- `slug` (text, required, unique, indexed) e.g., `"yoga-studios"`
 - `name` (text, required) e.g., `"Yoga Studios"`
-- `description` (text) e.g., `"Top-rated yoga, vinyasa, and hot yoga studios across Utah."`
-- `icon_name` (text) e.g., `"sun-smile"`
+- `description` (textarea) e.g., `"Top-rated yoga, vinyasa, and hot yoga studios across Utah."`
+- `icon` (upload -> media)
+- `parentCategory` (relationship -> categories, self)
+- `seoTitle` / `seoDescription` (text)
+
+**Access Control**: Read public (published only); create/update/delete restricted to `OWNER`. `CONTENT_AGENT` gets `find: true` only.
+
+---
 
 ## 2. Collection: `locations`
 - `id` (UUID / text, required, primary key)
-- `slug` (text, unique, indexed) e.g., `"provo"`
+- `slug` (text, required, unique) e.g., `"provo"`
 - `name` (text, required) e.g., `"Provo / Orem"`
-- `region` (text, required) e.g., `"Utah County"`
-- `zip_codes` (array of text) e.g., `["84601", "84604", "84606"]`
+- `region` (select: Wasatch Front / Utah Valley / Southern Utah / Mountain Resort Towns)
+- `county` (text)
+- `coordinates` (point: lat/lng)
+- `description` (richText)
+- `heroImage` (upload -> media)
+- `seoTitle` / `seoDescription` (text)
 
-## 3. Collection: `businesses`
+**Access Control**: Identical to `categories`.
+
+---
+
+## 3. Collection: `businesses` (Core Collection & Trust Layer)
 - `id` (UUID / text, required, primary key)
-- `slug` (text, unique, indexed) e.g., `"wasatch-wellness-studio"`
+- `slug` (text, required, unique) e.g., `"wasatch-wellness-studio"`
 - `name` (text, required) e.g., `"Wasatch Wellness Studio"`
-- `category_id` (relationship → `categories.id`, required)
-- `location_id` (relationship → `locations.id`, required)
-- `tagline` (text) e.g., `"Community-first yoga & chakra balancing in Provo"`
-- `description` (text / markdown)
-- `address` (text) e.g., `"145 N University Ave, Provo, UT 84601"`
-- `phone` (text)
-- `email` (text)
-- `website` (text)
-- `hours_json` (jsonb) e.g., `{"mon": "6am-8pm", "tue": "6am-8pm", "sat": "8am-4pm"}`
-- `rating_score` (decimal, default: `4.9`)
-- `review_count` (integer, default: `24`)
-- `is_claimed` (boolean, default: `false`)
-- `is_jetty_customer` (boolean, default: `false`)
-- `verified_badge` (boolean, default: `false`)
-- `booking_url` (text, optional)
-- `created_at` (timestamp)
+- `category` (relationship -> categories, hasMany)
+- `location` (relationship -> locations, hasMany)
+- `address` (group: street, city, state, zip)
+- `serviceArea` (text)
+- `phone` / `email` / `website` (text)
+- `hours` (array: {day, open, close})
+- `shortDescription` (textarea, 160 char cap)
+- `description` (richText)
+- `photos` (array -> media)
+- `logo` (upload -> media)
+- `claimStatus` (select: unclaimed / claimed / verified, default: unclaimed)
+- `claimedBy` (relationship -> users)
+- `jettyCustomer` (checkbox)
+- `jettyTier` (select: none / DIY / guided / white-glove)
+- `bookingUrl` (text)
+- `featuredPlacement` (checkbox)
+- `socialLinks` (group: instagram, facebook, tiktok)
+- `certifications` (array: {name, issuingBody, evidenceUrl})
+- `foundedYear` (number)
+- `source` (group) — **Trust Layer & Editorial Truth Policy**:
+  - `sourceType`: select (public-data / self-submitted / claimed)
+  - `sourceUrl`: text
+  - `confidence`: select (verified / inferred / unknown)
+  - `lastVerifiedDate`: date
+
+**Access Control Security Rule**: `CONTENT_AGENT` gets `find: true` only, and `create/update/delete: false`. Business facts carry real-world liability. Only human `OWNER`/`EDITOR` can create or edit business records.
+
+---
 
 ## 4. Collection: `reviews`
 - `id` (UUID / text, required, primary key)
-- `business_id` (relationship → `businesses.id`, required)
-- `author_name` (text, required)
-- `rating` (integer, 1-5, required)
-- `content` (text, required)
-- `source` (text) e.g., `"Google Reviews (Attributed)"`
-- `created_at` (timestamp)
+- `business` (relationship -> businesses, required)
+- `source` (select: google / native / other)
+- `sourceUrl` (text, required if source ≠ native)
+- `rating` (number, 1-5)
+- `text` (textarea)
+- `reviewerName` (text)
+- `date` (date)
+- `verified` (checkbox, true only if pulled via attributed API or confirmed submission)
+
+**Access Control Security Rule**: `create` is NEVER available to `CONTENT_AGENT`. Reviews must never be agent-generated.
+
+---
 
 ## 5. Collection: `leads`
 - `id` (UUID / text, required, primary key)
-- `business_id` (relationship → `businesses.id`, optional)
-- `visitor_name` (text, required)
-- `visitor_email` (text, required)
-- `message` (text)
-- `lead_type` (text) e.g., `"directory_inquiry"`, `"newsletter_signup"`
-- `created_at` (timestamp)
+- `business` (relationship -> businesses, optional)
+- `name` / `email` / `phone` / `message` (text)
+- `source` (select: directory-inquiry / newsletter-signup / claim-request)
+- `consentGiven` (checkbox, required)
+- `createdAt` (date, auto)
+
+**Access Control Security Rule**: `create` public (form submission); `read` restricted to `OWNER` + the claimed business owner.
+
+---
 
 ## 6. Collection: `claims`
 - `id` (UUID / text, required, primary key)
-- `business_id` (relationship → `businesses.id`, required)
-- `claimant_name` (text, required)
-- `claimant_email` (text, required)
-- `claimant_phone` (text, required)
-- `status` (text, default: `"pending"`) -- `pending` | `verified` | `rejected`
-- `verification_notes` (text)
-- `created_at` (timestamp)
+- `business` (relationship -> businesses, required)
+- `claimantName` / `claimantEmail` / `claimantRole` (text)
+- `verificationMethod` (select: email-domain-match / phone-verification / manual-review)
+- `status` (select: pending / approved / rejected)
+- `reviewedBy` (relationship -> users)
+- `reviewedAt` (date)
+
+**Access Control Security Rule**: `OWNER`/`EDITOR` only for review actions. `CONTENT_AGENT` has ZERO access to this collection.

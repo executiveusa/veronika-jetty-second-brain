@@ -271,3 +271,63 @@ The mistake that kills most niche software is treating the product as the only t
 - **Weeks 9-12**: Customer founder spotlights published. Retarget Directory claim visitors.
 - **Months 4-6**: Organic word-of-mouth referral flywheel compounds.
 
+---
+
+## **PART 18: PAYLOAD SCHEMA — DIRECTORY COLLECTIONS**
+
+### 18.1 Categories
+- `name`: text, required, unique (e.g. "Yoga Studios")
+- `slug`: text, required, unique, auto-generated
+- `description`: textarea
+- `icon`: upload (media)
+- `seoTitle` / `seoDescription`: text
+
+### 18.2 Locations
+- `name`: text, required (e.g. "Provo")
+- `slug`: text, required, unique
+- `region`: select (Wasatch Front / Utah Valley / Southern Utah / Mountain Resort Towns)
+- `description`: richText
+
+### 18.3 Businesses (Core Collection)
+- `name`: text, required
+- `slug`: text, unique
+- `category`: relationship → categories, hasMany
+- `location`: relationship → locations, hasMany
+- `address`: group (street, city, state, zip)
+- `phone` / `email` / `website`: text
+- `claimStatus`: select (unclaimed / claimed / verified)
+- `jettyCustomer`: checkbox
+- `bookingUrl`: text
+- `source`: group (`sourceType`, `sourceUrl`, `confidence`, `lastVerifiedDate`) — **Trust Layer**
+
+### 18.4 Access Control Security Rules
+- `businesses`: CONTENT_AGENT gets `find: true` but `create/update/delete: false` (Human OWNER/EDITOR only).
+- `reviews`: Never agent-generated (`create` restricted to human submission).
+- `claims`: OWNER/EDITOR only. CONTENT_AGENT has zero access.
+
+---
+
+## **PART 19: THE JETTY — FIRST 10 ARTICLE BRIEFS**
+
+1. **Brief 1 (Cost)**: "What Does It Really Cost to Open a Yoga Studio in Utah?"
+2. **Brief 2 (Cost)**: "How Much Should You Charge for a Wellness Retreat in Utah?"
+3. **Brief 3 (Risk)**: "5 Signs Your Yoga Studio Is About to Lose Members"
+4. **Brief 4 (Risk)**: "Why Most First-Time Retreat Organizers Lose Money on Their First Event"
+5. **Brief 5 (Comparison)**: "Hot Yoga vs. Vinyasa: Which Studio Model Fits Your Utah Space?"
+6. **Brief 6 (How-To)**: "How to Plan Your First Wellness Retreat in Utah: A Step-by-Step Guide"
+7. **Brief 7 (Common Mistakes)**: "3 Mistakes Natural Health Practitioners Make When Pricing Consultations"
+8. **Brief 8 (Local)**: "Utah's Wellness Retreat Season Calendar: When to Book, When to Launch"
+9. **Brief 9 (Trust)**: "How to Choose a Natural Healing Practitioner in Salt Lake City"
+10. **Brief 10 (Case Study Placeholder)**: "Founder Spotlight: How a Provo Yoga Studio Owner Cut Admin Time by 10 Hours a Week"
+
+---
+
+## **PART 20: THE JETTY DIGEST — FIRST THREE ISSUES**
+
+- **Issue #1**: Welcome to THE JETTY & Studio Startup Costs
+- **Issue #2**: The Retreat Issue & Pricing Mistakes
+- **Issue #3**: Choosing Who You Trust & Local Practitioner Spotlights
+
+*(See docs/JETTY_NEWSLETTER_ISSUES.md for full templates)*
+
+
