@@ -74,16 +74,66 @@ app.add_middleware(
 async def startup_db():
     global _PG_POOL
     if not _PG_AVAILABLE:
-        print("[JETTY] asyncpg not installed — falling back to JSONL memory")
+        print("[JETTY] asyncpg not installed — falling back to JSONL/in-memory memory")
         return
     try:
         _PG_POOL = await asyncpg.create_pool(
             SUPABASE_PG_DSN, min_size=1, max_size=4, timeout=5
         )
         print(f"[JETTY] Connected to veronika_jetty Postgres memory")
+        async with _PG_POOL.acquire() as conn:
+            await conn.execute("""
+                CREATE SCHEMA IF NOT EXISTS veronika_jetty;
+                CREATE TABLE IF NOT EXISTS veronika_jetty.businesses (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    name TEXT NOT NULL,
+                    business_type TEXT NOT NULL,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+                );
+                CREATE TABLE IF NOT EXISTS veronika_jetty.clients (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    business_id UUID REFERENCES veronika_jetty.businesses(id) ON DELETE CASCADE,
+                    name TEXT NOT NULL,
+                    email TEXT,
+                    phone TEXT,
+                    preferences JSONB DEFAULT '{}'::jsonb,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                    last_contact TIMESTAMP WITH TIME ZONE DEFAULT now()
+                );
+                CREATE TABLE IF NOT EXISTS veronika_jetty.appointments (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    client_id UUID REFERENCES veronika_jetty.clients(id) ON DELETE CASCADE,
+                    title TEXT NOT NULL,
+                    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
+                    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+                    status TEXT DEFAULT 'scheduled',
+                    notes TEXT
+                );
+                CREATE TABLE IF NOT EXISTS veronika_jetty.transactions (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    business_id UUID REFERENCES veronika_jetty.businesses(id) ON DELETE CASCADE,
+                    client_id UUID REFERENCES veronika_jetty.clients(id) ON DELETE SET NULL,
+                    amount DECIMAL(12,2) NOT NULL,
+                    type TEXT NOT NULL,
+                    date TIMESTAMP WITH TIME ZONE DEFAULT now()
+                );
+                CREATE TABLE IF NOT EXISTS veronika_jetty.automations (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    business_id UUID REFERENCES veronika_jetty.businesses(id) ON DELETE CASCADE,
+                    name TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    trigger JSONB NOT NULL,
+                    actions JSONB NOT NULL,
+                    status TEXT DEFAULT 'active',
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                    last_run TIMESTAMP WITH TIME ZONE
+                );
+            """)
+            print("[JETTY] Verified veronika_jetty Wellness schema & tables")
     except Exception as e:
         print(f"[JETTY] Postgres unavailable, using JSONL fallback: {e}")
         _PG_POOL = None
+
 
 @app.on_event("shutdown")
 async def shutdown_db():
@@ -944,6 +994,215 @@ def config_js():
         media_type="application/javascript",
     )
 
+# ── JETTY WELLNESS™ (Phase 1 MVP) Data Models & Endpoints ───────────────────
+
+class BusinessProfile(BaseModel):
+    id: str = "bzn-default-001"
+    name: str = "Wasatch Wellness Studio"
+    business_type: str = "studio"  # studio | solo_practice | retreat | product
+    owner_name: str = "Sarah Mitchell"
+    region: str = "Provo, Utah"
+
+class ClientProfile(BaseModel):
+    id: str
+    name: str
+    email: Optional[str] = ""
+    phone: Optional[str] = ""
+    preferences: Dict[str, Any] = Field(default_factory=dict)
+    notes: Optional[str] = ""
+    last_contact: Optional[str] = ""
+    member_status: Optional[str] = "Active"  # VIP Member | Active | Lapsed | New
+
+class Appointment(BaseModel):
+    id: str
+    client_name: str
+    title: str
+    time: str
+    status: str = "scheduled"  # scheduled | completed | cancelled
+    instructor: Optional[str] = "Sarah M."
+
+class AutomationItem(BaseModel):
+    id: str
+    name: str
+    trigger_desc: str
+    result_metric: str
+    status: str = "active"  # active | paused
+    sent_count: int = 0
+
+# In-memory Wellness Store (seeding rich demo data out of the box)
+CURRENT_BUSINESS = BusinessProfile()
+
+WELLNESS_CLIENTS: List[Dict[str, Any]] = [
+    {
+        "id": "c-101",
+        "name": "Sarah Mitchell",
+        "email": "sarah.m@example.com",
+        "phone": "(801) 555-0192",
+        "preferences": {"schedule": "Evening", "style": "Vinyasa", "allergies": "Peanuts", "focus": "Chakra Balancing"},
+        "notes": "VIP Member since Dec 2022. Attended 147 classes. Prefers evening sessions.",
+        "last_contact": "2 days ago",
+        "member_status": "VIP Member"
+    },
+    {
+        "id": "c-102",
+        "name": "Marcus Vance",
+        "email": "marcus.v@example.com",
+        "phone": "(801) 555-0144",
+        "preferences": {"schedule": "Morning", "herb": "Peppermint & Chamomile", "focus": "Stress Relief"},
+        "notes": "Sensitive to licorice root. Loves custom mint herbal blends.",
+        "last_contact": "Yesterday",
+        "member_status": "Active"
+    },
+    {
+        "id": "c-103",
+        "name": "Elena Thorne",
+        "email": "elena.t@example.com",
+        "phone": "(435) 555-0188",
+        "preferences": {"retreat": "Park City Fall Retreat", "dietary": "Vegan / Gluten-Free"},
+        "notes": "Registered for October retreat. Prefers payment plans ($500/mo).",
+        "last_contact": "3 days ago",
+        "member_status": "VIP Member"
+    },
+    {
+        "id": "c-104",
+        "name": "Thomas Brody",
+        "email": "thomas.b@example.com",
+        "phone": "(801) 555-0173",
+        "preferences": {"schedule": "Weekend", "style": "Gentle Flow"},
+        "notes": "Needs gentle adjustments due to past shoulder strain.",
+        "last_contact": "1 week ago",
+        "member_status": "Active"
+    },
+    {
+        "id": "c-105",
+        "name": "Lisa Chen",
+        "email": "lisa.c@example.com",
+        "phone": "(801) 555-0112",
+        "preferences": {"schedule": "Mid-day", "focus": "Sound Bath Healing"},
+        "notes": "Hasn't attended in 30 days — candidate for comeback offer.",
+        "last_contact": "32 days ago",
+        "member_status": "Lapsed"
+    }
+]
+
+WELLNESS_APPOINTMENTS: List[Dict[str, Any]] = [
+    {"id": "a-1", "client_name": "Sarah Mitchell, Elena T.", "title": "9:00 AM — Morning Yoga Flow", "time": "Today 9:00 AM", "status": "completed", "instructor": "Elena Thorne"},
+    {"id": "a-2", "client_name": "Marcus Vance, Lisa K.", "title": "10:30 AM — Pilates & Breathwork", "time": "Today 10:30 AM", "status": "completed", "instructor": "Sarah Mitchell"},
+    {"id": "a-3", "client_name": "8 Registered Members", "title": "6:00 PM — Evening Chakra Sound Bath", "time": "Today 6:00 PM", "status": "scheduled", "instructor": "Elena Thorne"},
+    {"id": "a-4", "client_name": "Thomas Brody", "title": "Tomorrow 10:00 AM — 1-on-1 Herbal Consultation", "time": "Tomorrow 10:00 AM", "status": "scheduled", "instructor": "Marcus Vance"}
+]
+
+WELLNESS_AUTOMATIONS: List[Dict[str, Any]] = [
+    {
+        "id": "aut-1",
+        "name": "Appointment Reminders",
+        "trigger_desc": "Email & SMS clients 24 hours before class or consultation",
+        "result_metric": "93% Attendance rate (847 reminders sent)",
+        "status": "active",
+        "sent_count": 847
+    },
+    {
+        "id": "aut-2",
+        "name": "Welcome Sequence (New Members)",
+        "trigger_desc": "Send 5 onboarding emails over 14 days with studio intro & member gift",
+        "result_metric": "91% Open rate (127 clients onboarded)",
+        "status": "active",
+        "sent_count": 127
+    },
+    {
+        "id": "aut-3",
+        "name": "Re-engagement (Lapsed 30+ Days)",
+        "trigger_desc": "Email lapsed clients: 'We miss you! Here is $20 off your next session'",
+        "result_metric": "33% Returned (18 re-engaged, $1,800 revenue)",
+        "status": "active",
+        "sent_count": 54
+    },
+    {
+        "id": "aut-4",
+        "name": "Birthday Special Offers",
+        "trigger_desc": "Send personalized birthday greeting & free class pass",
+        "result_metric": "88% Claim rate (12 sent this month)",
+        "status": "active",
+        "sent_count": 42
+    },
+    {
+        "id": "aut-5",
+        "name": "Retreat Payment Reminders",
+        "trigger_desc": "Send deposit & final payment reminders 14 days before due date",
+        "result_metric": "94% On-time payment completion",
+        "status": "active",
+        "sent_count": 31
+    }
+]
+
+@app.get("/api/wellness/business")
+def get_business_profile():
+    return CURRENT_BUSINESS
+
+@app.post("/api/wellness/business")
+def update_business_profile(bzn: BusinessProfile):
+    global CURRENT_BUSINESS
+    CURRENT_BUSINESS = bzn
+    return CURRENT_BUSINESS
+
+@app.get("/api/wellness/clients")
+def get_wellness_clients():
+    return WELLNESS_CLIENTS
+
+@app.post("/api/wellness/clients")
+def create_wellness_client(client: ClientProfile):
+    new_item = client.dict()
+    WELLNESS_CLIENTS.insert(0, new_item)
+    return new_item
+
+@app.get("/api/wellness/appointments")
+def get_wellness_appointments():
+    return WELLNESS_APPOINTMENTS
+
+@app.post("/api/wellness/appointments")
+def create_wellness_appointment(apt: Appointment):
+    new_apt = apt.dict()
+    WELLNESS_APPOINTMENTS.append(new_apt)
+    return new_apt
+
+@app.get("/api/wellness/revenue")
+def get_wellness_revenue():
+    return {
+        "this_month": 8420.00,
+        "last_month": 7200.00,
+        "trend_percent": 17.0,
+        "forecast": 9100.00,
+        "by_service": [
+            {"label": "Yoga Classes", "amount": 5200.00},
+            {"label": "1-on-1 Consultations", "amount": 2100.00},
+            {"label": "Retreat Deposits", "amount": 1120.00}
+        ],
+        "by_product": [
+            {"label": "Herbal Blends & Teas", "amount": 1800.00},
+            {"label": "Apparel & Cushions", "amount": 1200.00},
+            {"label": "Meditation Recordings", "amount": 220.00}
+        ],
+        "payment_status": {"paid": 7840.00, "pending": 580.00, "overdue": 0.00}
+    }
+
+@app.get("/api/wellness/automations")
+def get_wellness_automations():
+    return WELLNESS_AUTOMATIONS
+
+@app.post("/api/wellness/automations")
+def create_wellness_automation(item: AutomationItem):
+    new_item = item.dict()
+    WELLNESS_AUTOMATIONS.insert(0, new_item)
+    return new_item
+
+@app.patch("/api/wellness/automations/{aut_id}/toggle")
+def toggle_wellness_automation(aut_id: str):
+    for a in WELLNESS_AUTOMATIONS:
+        if a["id"] == aut_id:
+            a["status"] = "paused" if a["status"] == "active" else "active"
+            return a
+    raise HTTPException(404, "Automation not found")
+
 @app.get("/")
 def index():
     index_path = FRONTEND_DIR / "index.html"
@@ -953,6 +1212,9 @@ def index():
 
 @app.get("/app")
 def app_index():
+    wellness_path = FRONTEND_DIR / "wellness.html"
+    if wellness_path.exists():
+        return FileResponse(wellness_path)
     app_path = FRONTEND_DIR / "app.html"
     if app_path.exists():
         return FileResponse(app_path)
@@ -965,6 +1227,14 @@ def brain_index():
         return FileResponse(brain_path)
     raise HTTPException(404, "Frontend assets not deployed with this backend.")
 
+@app.get("/app/brain")
+def app_brain_index():
+    brain_path = FRONTEND_DIR / "app.html"
+    if brain_path.exists():
+        return FileResponse(brain_path)
+    raise HTTPException(404, "Frontend assets not deployed with this backend.")
+
 assets_dir = FRONTEND_DIR / "assets"
 if assets_dir.exists():
     app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
