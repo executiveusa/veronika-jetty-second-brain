@@ -409,9 +409,9 @@ function labelObject(n) {
   return sprite;
 }
 
-function addStarfield(scene) {
+function addStarfield(scene, count = 1800) {
   if (!scene) return;
-  const N = 1800;
+  const N = Math.max(0, Math.floor(count));
   const geo = new THREE.BufferGeometry();
   const positions = new Float32Array(N * 3);
   for (let i = 0; i < N; i++) {
@@ -427,9 +427,47 @@ function addStarfield(scene) {
   scene.add(new THREE.Points(geo, mat));
 }
 
+// Detect a touch/low-power device so the 3D scene can degrade gracefully.
+function isMobileDevice() {
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
+  const touch = navigator.maxTouchPoints > 0;
+  const narrow = (window.innerWidth || 9999) < 820;
+  return (coarse && touch) || (touch && narrow);
+}
+
+// FPS watchdog: if the scene stutters for ~2s, shed particle load once.
+let _fpsWatchdogArmed = false;
+function armFpsWatchdog(graph) {
+  if (_fpsWatchdogArmed || !graph) return;
+  _fpsWatchdogArmed = true;
+  let frames = 0, last = performance.now();
+  let degraded = false;
+  function tick() {
+    frames++;
+    const now = performance.now();
+    if (now - last >= 2000) {
+      const fps = frames / ((now - last) / 1000);
+      if (fps < 28 && !degraded) {
+        degraded = true;
+        try { graph.linkDirectionalParticles(0); } catch (_) {}
+      }
+      frames = 0; last = now;
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
 function initGalaxy(data) {
   const elem = $('galaxy-canvas');
-  STATE.graph = ForceGraph3D({ controlType: 'orbit', rendererConfig: { preserveDrawingBuffer: true, antialias: true } })(elem)
+  const mobile = isMobileDevice();
+
+  // Mobile renderer tuning: no antialias, capped DPR, high-performance hint.
+  const rendererConfig = mobile
+    ? { antialias: false, alpha: false, powerPreference: 'high-performance' }
+    : { antialias: true, alpha: false, powerPreference: 'high-performance' };
+
+  STATE.graph = ForceGraph3D({ controlType: 'orbit', rendererConfig })(elem)
     .backgroundColor('#0f0a12')
     .graphData(data)
     .nodeId('id')
@@ -437,15 +475,15 @@ function initGalaxy(data) {
     .nodeColor(n => nodeColor(n.group))
     .nodeRelSize(4)
     .nodeOpacity(0.95)
-    .nodeResolution(12)
+    .nodeResolution(mobile ? 6 : 12)            // low-poly spheres on phones
     .nodeThreeObjectExtend(true)
     .nodeThreeObject(labelObject)
     .linkColor(() => 'rgba(200,51,111,.18)')
     .linkWidth(0.7)
     .linkOpacity(0.4)
-    .linkDirectionalParticles(2)
+    .linkDirectionalParticles(mobile ? 1 : 2)   // fewer flow particles on mobile
     .linkDirectionalParticleSpeed(0.0035)
-    .linkDirectionalParticleWidth(1.2)
+    .linkDirectionalParticleWidth(mobile ? 1.0 : 1.2)
     .linkDirectionalParticleColor(() => '#c8336f')
     .onNodeClick(n => {
       STATE.unlocked = true;
@@ -453,10 +491,19 @@ function initGalaxy(data) {
     })
     .enableNodeDrag(false)
     .showNavInfo(false);
+
+  // Cap device pixel ratio — 3x retina phones do 9x the fragment work otherwise.
+  try { STATE.graph.dpr(Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2)); } catch (_) {}
+
   STATE.graph.d3Force('charge').strength(-130);
   STATE.graph.d3Force('link').distance(36);
-  // Add the spiral-jetty starfield behind the graph
-  try { addStarfield(STATE.graph.scene()); } catch (e) { /* older API */ }
+
+  // Starfield — lighter on mobile (800 vs 1800)
+  try { addStarfield(STATE.graph.scene(), mobile ? 800 : 1800); } catch (e) { /* older API */ }
+
+  // Watchdog sheds particles if the device can't hold ~30fps
+  if (mobile) armFpsWatchdog(STATE.graph);
+
   setTimeout(() => STATE.graph.zoomToFit(1400, 80), 650);
 }
 
