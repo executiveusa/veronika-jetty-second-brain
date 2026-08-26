@@ -51,13 +51,13 @@
     <div class="nav-pill" id="brain-pill">
       <span class="pill-label">Brain</span>
       <select id="model-select" title="Choose AI model" aria-label="Choose AI model">
+        <option value="synthia" selected>OpenRouter Auto</option>
         <option value="anthropic">Claude</option>
         <option value="openai">ChatGPT / OpenAI</option>
-        <option value="synthia">ChatGPT via Synthia</option>
-        <option value="groq">Groq (Free)</option>
         <option value="deepseek">DeepSeek</option>
-        <option value="mistral">Mistral (Free)</option>
+        <option value="mistral">Mistral</option>
         <option value="hermes">Hermes</option>
+        <option value="groq">Groq (backup only)</option>
       </select>
     </div>
     <div class="nav-pill status-pill">
@@ -116,7 +116,7 @@
 
     <div class="input-column">
       <textarea id="query-input"
-        placeholder="Ask · &quot;remember that…&quot; · &quot;good morning&quot; · &quot;switch to claude&quot;"
+        placeholder="Ask · &quot;remember that…&quot; · &quot;good morning&quot; · &quot;switch to OpenRouter&quot;"
         autocomplete="off"
         rows="1"
         aria-label="Message Jetty"></textarea>
