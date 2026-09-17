@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const landing=readFileSync(new URL('../frontend/index.html',import.meta.url),'utf8');
+const wellness=readFileSync(new URL('../frontend/wellness.html',import.meta.url),'utf8');
+const directory=readFileSync(new URL('../frontend/directory.html',import.meta.url),'utf8');
+for(const claim of ['never shared with any AI provider','Signal. Shape. Action.','Not a chatbot.','Set once, runs forever.']) assert.ok(!`${landing}${wellness}`.includes(claim),`removed claim returned: ${claim}`);
+assert.match(landing,/Built for Utah small businesses/);
+assert.match(landing,/\$500 setup \+ \$199\/month/);
+assert.match(wellness,/Sample pilot data/);
+assert.match(directory,/sample data only/i);
+console.log('copy truth checks passed');
