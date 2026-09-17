@@ -1,3 +1,4 @@
+if (window.JETTY_AUTH_READY) await window.JETTY_AUTH_READY;
 /**
  * JETTY™ — Spiral Jetty AI Second Brain
  * Frontend Application Logic v1.4 — true 3D, streaming, voice dock, onboarding.

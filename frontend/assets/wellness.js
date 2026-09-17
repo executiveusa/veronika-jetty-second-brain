@@ -1,3 +1,4 @@
+if (window.JETTY_AUTH_READY) await window.JETTY_AUTH_READY;
 /* ============================================================
    JETTY WELLNESS™ — Client-Side Logic & API Integrations
    ============================================================ */
