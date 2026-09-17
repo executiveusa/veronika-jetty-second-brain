@@ -47,7 +47,7 @@ SYNTHIA_GATEWAY_API_KEY  = os.getenv("SYNTHIA_GATEWAY_API_KEY", "")
 SYNTHIA_GATEWAY_MODEL    = os.getenv("SYNTHIA_GATEWAY_MODEL", OPENAI_MODEL)
 MAX_HISTORY      = int(os.getenv("MAX_HISTORY", "6"))   # trimmed for speed
 MAX_TOP_NOTES    = int(os.getenv("MAX_TOP_NOTES", "4"))  # fewer notes = faster
-PUBLIC_ORIGIN    = os.getenv("PUBLIC_ORIGIN", "*")
+PUBLIC_ORIGIN    = os.getenv("PUBLIC_ORIGIN", "http://localhost:4700")
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "45"))
 ALLOWED_ORIGINS = [
     origin.strip()
