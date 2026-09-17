@@ -21,10 +21,7 @@ except ImportError:
 
 _PG_POOL: Any = None  # asyncpg.Pool, initialised on startup
 
-SUPABASE_PG_DSN = os.getenv(
-    "VERONIKA_PG_DSN",
-    "postgresql://supabase_admin:072090156d28a9df6502d94083e47990@127.0.0.1:5434/postgres"
-)
+SUPABASE_PG_DSN = os.getenv("VERONIKA_PG_DSN", "").strip()
 
 ROOT       = Path(__file__).resolve().parents[1]
 NOTES_DIR  = Path(os.getenv("NOTES_DIR", ROOT / "notes")).resolve()
@@ -75,6 +72,9 @@ async def startup_db():
     global _PG_POOL
     if not _PG_AVAILABLE:
         print("[JETTY] asyncpg not installed — falling back to JSONL/in-memory memory")
+        return
+    if not SUPABASE_PG_DSN:
+        print("[JETTY] VERONIKA_PG_DSN is not configured — falling back to JSONL/in-memory memory")
         return
     try:
         _PG_POOL = await asyncpg.create_pool(
