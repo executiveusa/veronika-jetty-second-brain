@@ -8,7 +8,7 @@
   const state = {
     dpr: Math.min(window.devicePixelRatio || 1, 2),
     w: 0, h: 0, t: 0, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
-    pointer: { x: -9999, y: -9999 }, ripples: []
+    pointer: { x: -9999, y: -9999 }, ripples: [], running: false, frameId: 0
   };
 
   function syncViewportMode() {
@@ -133,17 +133,40 @@
   }
 
   function frame(t) {
+    if (!state.running) return;
     state.t = t;
-    if (img.complete && img.naturalWidth) {
+    if (img.naturalWidth) {
       const r = drawImageBase();
       drawWaterOnly(r);
       drawRipples();
     }
-    requestAnimationFrame(frame);
+    state.frameId = requestAnimationFrame(frame);
   }
 
-  img.onload = () => { resize(); hero.classList.add('ready'); requestAnimationFrame(frame); };
+  function startHero() {
+    if (!img.naturalWidth) return;
+    resize();
+    hero.classList.add('ready');
+    if (!state.running && !document.hidden) {
+      state.running = true;
+      state.frameId = requestAnimationFrame(frame);
+    }
+  }
+
+  function stopHero() {
+    state.running = false;
+    if (state.frameId) cancelAnimationFrame(state.frameId);
+    state.frameId = 0;
+  }
+
+  img.addEventListener('load', startHero, { once: true });
+  img.addEventListener('error', () => hero.classList.add('image-error'), { once: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopHero(); else startHero();
+  });
   resize();
+  // Cached images can complete before the load listener is attached.
+  if (img.complete) startHero();
 
   // Star cursor, hover spin, and sparse spark trail. Mirrors the original star-cursor feel without copying its runtime.
   const star = document.getElementById('cursor-star');
