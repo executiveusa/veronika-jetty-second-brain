@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from backend.auth import authenticate_request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -69,6 +70,16 @@ app.add_middleware(
     allow_methods=["GET", "POST", "DELETE", "PUT", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def private_api_auth(request: Request, call_next):
+    """Require a verified user before private API code can run."""
+    identity = authenticate_request(request)
+    if identity:
+        request.state.user = identity
+        request.state.user_id = identity["sub"]
+        request.state.business_id = identity.get("business_id")
+    return await call_next(request)
 
 @app.on_event("startup")
 async def startup_db():
