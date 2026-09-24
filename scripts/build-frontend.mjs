@@ -18,6 +18,8 @@ const config = {
   appName: process.env.APP_NAME || "Jetty",
   appRegion: process.env.APP_REGION || "Salt Lake City, Utah",
   defaultModelProvider: process.env.MODEL_PROVIDER || "groq",
+  supabaseUrl: process.env.SUPABASE_URL || "",
+  supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
 };
 
 async function copyRecursive(src, dest) {
