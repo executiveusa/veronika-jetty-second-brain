@@ -822,7 +822,7 @@ AI: ✓ Payment configuration added successfully!
 apiKey: ${STRIPE_SECRET_KEY}
 
 # Bad - Never hardcode API keys
-apiKey: "sk_test_123456789"
+apiKey: "sk_test_REDACTED_ROTATE"
 ```
 
 ### 2. Start with Test Mode
@@ -862,7 +862,7 @@ Create a `.env.example` file:
 
 ```bash
 # Payment Configuration
-STRIPE_SECRET_KEY=sk_test_your-key-here
+STRIPE_SECRET_KEY=sk_test_REDACTED_ROTATE-key-here
 STRIPE_PUBLISHABLE_KEY=pk_test_your-key-here
 STRIPE_WEBHOOK_SECRET=whsec_your-secret-here
 ```
