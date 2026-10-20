@@ -22,7 +22,7 @@ a,button{cursor:var(--cursor-light),pointer}a:hover,button:hover{cursor:var(--cu
   .hero-still,.hero-water{object-position:50% 60%}
 }
 @media(prefers-reduced-motion:reduce){
-  .hero-water{display:none} /* shader canvas stays off; the still photo is the hero */
+  .hero-water{transition:none} /* visitor can explicitly opt into gentle motion */
 }
 .hero-vignette{position:absolute;inset:0;z-index:1;pointer-events:none;
   background:
@@ -294,3 +294,9 @@ h1{
   *{animation:none!important;transition:none!important}
   .star-spark{display:none}
 }
+
+/* Motion controls sit above hero shading, below navigation. */
+.hero.waves-paused .hero-water{opacity:0;transition:none}
+.wave-toggle{position:absolute;right:22px;bottom:90px;z-index:25;border:1px solid rgba(255,247,239,.65);border-radius:6px;background:rgba(15,10,18,.88);color:#fff7ef;padding:10px 12px;min-height:44px;font-size:12px}
+.wave-toggle:focus-visible{outline:2px solid #fff7ef;outline-offset:3px}
+.wave-debug{position:absolute;left:12px;bottom:12px;z-index:5;max-width:calc(100% - 24px);padding:8px;background:#0f0a12;color:#fff7ef;font:11px/1.5 monospace;overflow-wrap:anywhere}

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/landing.css">
+<link rel="stylesheet" href="/assets/landing.css?v=waves-v3">
 <script src="/config.js"></script>
 </head>
 <body class="theme-sunset">
@@ -21,6 +21,8 @@
       <img class="hero-still" src="/assets/jetty-hero-clean.png" alt="" aria-hidden="true">
       <canvas id="wave-gl" class="hero-water" aria-hidden="true"></canvas>
       <canvas id="wave-canvas" aria-hidden="true"></canvas>
+      <button id="wave-toggle" class="wave-toggle" type="button" aria-pressed="false">Play waves</button>
+      <output id="wave-debug" class="wave-debug" hidden></output>
       <div class="hero-vignette" aria-hidden="true"></div>
 
       <header class="topbar" role="banner">
@@ -106,6 +108,6 @@
     </section>
   </main>
 
-<script src="/assets/landing.js"></script>
+<script src="/assets/landing.js?v=waves-v3"></script>
 </body>
 </html>
