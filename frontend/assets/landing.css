@@ -22,7 +22,7 @@ a,button{cursor:var(--cursor-light),pointer}a:hover,button:hover{cursor:var(--cu
   .hero-still,.hero-water{object-position:50% 60%}
 }
 @media(prefers-reduced-motion:reduce){
-  .hero-water{display:none}
+  .hero-water{display:none} /* shader canvas stays off; the still photo is the hero */
 }
 .hero-vignette{position:absolute;inset:0;z-index:1;pointer-events:none;
   background:

@@ -31,30 +31,171 @@
   }
   addEventListener('resize', resize, { passive: true });
 
-  // Water loop video (HyperFrames render, seamless ping-pong loop). The still
-  // image underneath is the poster: it paints instantly, the video fades over
-  // it when ready, and it is what reduced-motion users keep.
-  function markReady() { hero.classList.add('ready'); }
+  // Animated water (WebGL), inspired by the earendil-works/waves ocean shader
+  // (https://github.com/earendil-works/waves, Apache-2.0). The hero photo is
+  // refracted by travelling wave trains below the waterline, so the waves
+  // visibly move without depending on video autoplay. Fallbacks: no WebGL,
+  // context loss, or reduced-motion -> the plain still image stays put.
+  const glCanvas = document.getElementById('wave-gl');
 
-  if (video) {
-    if (state.reduced) {
-      video.removeAttribute('autoplay');
-      video.pause();
-    } else {
-      const play = () => { const p = video.play(); if (p && p.catch) p.catch(() => {}); };
-      if (video.readyState >= 3) markReady();
-      else {
-        video.addEventListener('canplay', markReady, { once: true });
-        setTimeout(markReady, 2500); // never leave the hero blank on a slow connection
+  const WATER_VERT = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main(){ vUv = vec2(aPos.x*0.5+0.5, 0.5-aPos.y*0.5); gl_Position = vec4(aPos,0.0,1.0); }
+`;
+
+  const WATER_FRAG = `
+precision mediump float;
+varying vec2 vUv;
+uniform sampler2D uTex;
+uniform float uTime;
+uniform vec2 uRes;
+uniform vec2 uImg;
+uniform float uFocusY;
+uniform float uWaterLine;
+
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453123); }
+float noise(vec2 p){
+  vec2 i=floor(p), f=fract(p);
+  vec2 u=f*f*(3.0-2.0*f);
+  return mix(mix(hash(i),hash(i+vec2(1.,0.)),u.x), mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),u.x), u.y);
+}
+float fbm(vec2 p){
+  float v=0.0,a=0.5;
+  for(int i=0;i<3;i++){ v+=a*noise(p); p=p*2.03+vec2(17.3,9.1); a*=0.5; }
+  return v;
+}
+void main(){
+  float ca = uRes.x/uRes.y;
+  float ia = uImg.x/uImg.y;
+  vec2 s = vec2(1.0);
+  if (ca > ia) { s.y = ia/ca; } else { s.x = ca/ia; }
+  vec2 uv = (vUv - vec2(0.5, uFocusY)) * s + vec2(0.5, uFocusY);
+
+  float t = uTime;
+  float water = smoothstep(uWaterLine - 0.015, uWaterLine + 0.05, vUv.y);
+  float depth = smoothstep(uWaterLine, 1.0, vUv.y);
+
+  // travelling wave trains + slow fbm swell (screen space)
+  float w1 = sin(vUv.x*34.0 + vUv.y*22.0 + t*1.7);
+  float w2 = sin(vUv.x*61.0 - vUv.y*31.0 + t*2.4);
+  float w3 = sin(vUv.y*95.0 + t*3.2 + sin(vUv.x*18.0 + t*0.9));
+  float swell = fbm(vUv*vec2(6.0,10.0) + vec2(t*0.12, -t*0.09));
+
+  vec2 duv = vec2(w1*0.55 + w2*0.45 + (swell-0.5)*1.4,
+                  w3*0.45 + (swell-0.5)*1.2)
+             * water * (0.0028 + 0.0062*depth);
+  vec3 col = texture2D(uTex, uv + duv).rgb;
+
+  // sun glitter: fine moving warm streaks on the swell
+  float streak = pow(0.5 + 0.5*sin(vUv.x*260.0 + swell*36.0 + t*2.2), 6.0);
+  float sparkleMask = water * smoothstep(0.0, 0.25, depth) * (1.0 - smoothstep(0.75, 1.0, depth));
+  float pulse = 0.6 + 0.4*sin(t*0.8 + vUv.x*9.0);
+  col += vec3(1.0, 0.72, 0.42) * streak * sparkleMask * pulse * 0.22;
+
+  // gentle breathing light on the swell
+  col *= 1.0 + water * 0.06 * sin(t*1.1 + vUv.y*38.0 + vUv.x*14.0);
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+  function initWater() {
+    if (state.reduced || !glCanvas) { if (glCanvas) glCanvas.remove(); return null; }
+    const gl = glCanvas.getContext('webgl', { alpha:false, antialias:false, depth:false, stencil:false, powerPreference:'low-power' });
+    if (!gl) { glCanvas.remove(); return null; }
+
+    function compile(type, src) {
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src); gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+        console.warn('water shader:', gl.getShaderInfoLog(sh));
+        return null;
       }
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) video.pause(); else if (!state.reduced) play();
-      });
-      play();
+      return sh;
     }
-  } else {
-    markReady();
+    const vs = compile(gl.VERTEX_SHADER, WATER_VERT);
+    const fs = compile(gl.FRAGMENT_SHADER, WATER_FRAG);
+    if (!vs || !fs) { glCanvas.remove(); return null; }
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { glCanvas.remove(); return null; }
+    gl.useProgram(prog);
+
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+    const aPos = gl.getAttribLocation(prog, 'aPos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    const U = {};
+    for (const n of ['uTex','uTime','uRes','uImg','uFocusY','uWaterLine']) U[n] = gl.getUniformLocation(prog, n);
+    gl.uniform1i(U.uTex, 0);
+
+    const tex = gl.createTexture();
+    const water = { gl, ready:false, visible:true, rafId:0, img:null };
+
+    function sizeGL() {
+      const dpr = Math.min(devicePixelRatio || 1, 1.5);
+      glCanvas.width = Math.max(2, Math.floor(state.w * dpr));
+      glCanvas.height = Math.max(2, Math.floor(state.h * dpr));
+      gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+    }
+
+    function setSceneUniforms(t) {
+      const compact = state.w <= 900;
+      gl.uniform1f(U.uTime, t);
+      gl.uniform2f(U.uRes, glCanvas.width, glCanvas.height);
+      gl.uniform2f(U.uImg, water.img.naturalWidth, water.img.naturalHeight);
+      gl.uniform1f(U.uFocusY, compact ? 0.6 : 0.5);
+      gl.uniform1f(U.uWaterLine, compact ? 0.455 : 0.405);
+    }
+
+    function frame(now) {
+      water.rafId = 0;
+      if (!water.visible || document.hidden || !water.ready) return;
+      setSceneUniforms(now / 1000);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      hero.classList.add('ready');
+      water.rafId = requestAnimationFrame(frame);
+    }
+    function kick() { if (!water.rafId && water.ready) water.rafId = requestAnimationFrame(frame); }
+
+    const img = new Image();
+    img.onload = () => {
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); // quad v=0 is already screen-top
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      water.img = img; water.ready = true;
+      sizeGL();
+      kick();
+    };
+    img.onerror = () => { glCanvas.remove(); };
+    img.src = '/assets/jetty-hero-clean.png';
+
+    addEventListener('resize', sizeGL, { passive:true });
+    document.addEventListener('visibilitychange', kick);
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(entries => {
+        water.visible = entries[0].isIntersecting;
+        if (water.visible) kick();
+      }).observe(hero);
+    }
+    glCanvas.addEventListener('webglcontextlost', e => {
+      e.preventDefault();
+      if (water.rafId) cancelAnimationFrame(water.rafId);
+      glCanvas.remove(); // still image underneath remains
+    });
+
+    return water;
   }
+
+  initWater();
 
   // Pointer ripples on the water (transparent overlay canvas; the only rAF work left).
   function drawRipples() {
