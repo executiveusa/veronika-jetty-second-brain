@@ -14,8 +14,16 @@ a,button{cursor:var(--cursor-light),pointer}a:hover,button:hover{cursor:var(--cu
 
 /* HERO — full viewport, canvas, minimal overlay */
 .hero{position:relative;min-height:100vh;min-height:100dvh;overflow:hidden;background:#0f0a12}
-#wave-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;transition:opacity 1.2s ease}
-.hero.ready #wave-canvas{opacity:1}
+.hero-still,.hero-water{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 50%;display:block}
+.hero-water{opacity:0;transition:opacity 1.2s ease}
+.hero.ready .hero-water{opacity:1}
+#wave-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+@media(max-width:900px){
+  .hero-still,.hero-water{object-position:50% 60%}
+}
+@media(prefers-reduced-motion:reduce){
+  .hero-water{display:none}
+}
 .hero-vignette{position:absolute;inset:0;z-index:1;pointer-events:none;
   background:
     radial-gradient(55% 55% at 78% 24%,rgba(255,183,64,.10),transparent 60%),
@@ -284,6 +292,5 @@ h1{
 
 @media(prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
-  #wave-canvas{opacity:1}
   .star-spark{display:none}
 }
