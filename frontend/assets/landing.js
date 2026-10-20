@@ -34,13 +34,13 @@
   // (https://github.com/earendil-works/waves, Apache-2.0). The hero photo is
   // refracted by travelling wave trains below the waterline, so the waves
   // visibly move without depending on video autoplay. Canvas 2D handles GPU
-  // failures. Reduced motion plays the gentle variant by default; Pause is always available.
+  // failures. Reduced motion uses gentle waves; the visitor can pause at any time.
   let glCanvas = document.getElementById('wave-gl');
   const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
   const params = new URLSearchParams(location.search);
   let choice = null;
   try { choice = localStorage.getItem('jetty-waves'); } catch {}
-  let paused = choice === 'paused';   // owner default: waves play, even under reduced motion (slow, quarter amplitude, no glitter); Pause stays
+  let paused = choice === 'paused';
   let water = null;
   const diagnostics = { build: 'waves-v3', path: 'still', reason: 'loading', frames: 0 };
   const waveToggle = document.getElementById('wave-toggle');
@@ -69,7 +69,10 @@
   });
   motionPreference.addEventListener('change', event => {
     state.reduced = event.matches;
-    syncControl();   // the shader reads state.reduced each frame, so gentle mode switches live
+    let saved; try { saved = localStorage.getItem('jetty-waves'); } catch {}
+    // A visitor's explicit Pause choice persists; preference changes only
+    // adjust wave speed/amplitude, never restart a paused animation.
+    syncControl();
   });
 
 
